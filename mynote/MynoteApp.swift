@@ -45,7 +45,14 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
     private var settings = AppSettings.shared
-    @State private var showOnboarding = !AppSettings.shared.hasOnboarded
+    @State private var showOnboarding: Bool
+
+    init() {
+        #if DEBUG
+        DebugSeeding.apply()
+        #endif
+        _showOnboarding = State(initialValue: !AppSettings.shared.hasOnboarded)
+    }
 
     var body: some View {
         let theme = settings.theme(for: colorScheme)
