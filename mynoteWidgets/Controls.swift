@@ -1,3 +1,4 @@
+import ActivityKit
 import AppIntents
 import SwiftUI
 import WidgetKit
@@ -19,7 +20,7 @@ struct LiveToggleControl: ControlWidget {
         var previewValue: Bool { true }
 
         func currentValue() async throws -> Bool {
-            SettingsSnapshot.load().liveEnabled
+            SettingsSnapshot.load().isEffectivelyLive && ActivityAuthorizationInfo().areActivitiesEnabled
         }
     }
 }

@@ -14,15 +14,22 @@ struct ToggleItemIntent: LiveActivityIntent {
     @Parameter(title: "Line")
     var line: Int
 
+    /// The item's text when the button was drawn, so a stale widget can't tick the wrong item.
+    @Parameter(title: "Item")
+    var content: String?
+
     init() {}
-    init(line: Int) { self.line = line }
+    init(line: Int, content: String? = nil) {
+        self.line = line
+        self.content = content
+    }
 
     @MainActor
     func perform() async throws -> some IntentResult {
         Log.intents.notice("\(Self.self) running in \(Log.process, privacy: .public)")
         NoteStore.shared.reloadFromDisk()
-        NoteStore.shared.toggleLine(line)
-        WidgetCenter.shared.reloadAllTimelines()
+        NoteStore.shared.toggleLine(line, expecting: content)
+        NoteStore.shared.flushWidgetReload()
         await LiveActivityManager.shared.reconcile()
         return .result()
     }
@@ -95,10 +102,15 @@ struct AddItemIntent: LiveActivityIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         Log.intents.notice("\(Self.self) running in \(Log.process, privacy: .public)")
+        let trimmed = item.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw $item.needsValueError("What should I add?")
+        }
         NoteStore.shared.reloadFromDisk()
-        let added = NoteStore.shared.appendItem(item)
+        let added = NoteStore.shared.appendItem(trimmed)
+        NoteStore.shared.flushWidgetReload()
         await LiveActivityManager.shared.reconcile()
-        return .result(dialog: added ? "Added to your list." : "Your note is full — mynote keeps lists under \(NoteParser.characterLimit) characters.")
+        return .result(dialog: added ? "Added to your list." : "Your note is full. mynote keeps lists under \(NoteParser.characterLimit) characters.")
     }
 }
 
@@ -112,6 +124,7 @@ struct ClearCompletedIntent: LiveActivityIntent {
         Log.intents.notice("\(Self.self) running in \(Log.process, privacy: .public)")
         NoteStore.shared.reloadFromDisk()
         NoteStore.shared.removeCompleted()
+        NoteStore.shared.flushWidgetReload()
         await LiveActivityManager.shared.reconcile()
         return .result()
     }

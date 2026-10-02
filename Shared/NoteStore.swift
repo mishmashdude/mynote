@@ -28,8 +28,20 @@ final class NoteStore {
         commit()
     }
 
-    func toggleLine(_ index: Int) {
-        let newText = NoteParser.toggle(document.current.text, line: index)
+    /// Toggles the checkbox on `index`. When `expected` is given and that line no longer
+    /// holds the same item (the note changed since the widget was drawn), the first
+    /// checkbox with matching text is toggled instead — or nothing, if there isn't one.
+    func toggleLine(_ index: Int, expecting expected: String? = nil) {
+        var target = index
+        if let expected {
+            let lines = NoteParser.parse(document.current.text)
+            let matches: (NoteLine) -> Bool = { $0.isTodo && $0.content == expected }
+            if !(lines.indices.contains(index) && matches(lines[index])) {
+                guard let found = lines.first(where: matches) else { return }
+                target = found.id
+            }
+        }
+        let newText = NoteParser.toggle(document.current.text, line: target)
         guard newText != document.current.text else { return }
         document.current.text = newText
         document.current.updatedAt = .now
@@ -98,10 +110,15 @@ final class NoteStore {
 
     /// Picks up changes written by another process (e.g. a widget intent).
     func reloadFromDisk() {
-        let disk = NoteFile.load()
-        if disk.current != document.current || disk.archived.count != document.archived.count {
-            document = disk
-        }
+        guard let disk = NoteFile.loadExisting(), disk != document else { return }
+        document = disk
+    }
+
+    /// Reload widgets right now (intents may be suspended before a debounced reload fires).
+    func flushWidgetReload() {
+        widgetReloadTask?.cancel()
+        widgetReloadTask = nil
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func commit(immediate: Bool = false) {

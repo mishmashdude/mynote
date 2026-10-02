@@ -21,7 +21,7 @@ struct Theme: Identifiable, Hashable, Sendable {
     /// Errors / destructive.
     let error: UInt32
 
-    var isDark: Bool { Theme.luminance(bg) < 0.5 }
+    var isDark: Bool { Theme.relativeLuminance(bg) < 0.2 }
     var colorScheme: ColorScheme { isDark ? .dark : .light }
 
     var bgColor: Color { Color(hex: bg) }
@@ -34,19 +34,43 @@ struct Theme: Identifiable, Hashable, Sendable {
 
     /// Readable foreground for content drawn on top of `mainColor`.
     var onMainColor: Color {
-        Theme.luminance(main) > 0.6 ? Color(hex: 0x111111) : .white
+        Theme.contrast(0xFFFFFF, main) >= Theme.contrast(0x111111, main) ? .white : Color(hex: 0x111111)
     }
 
     /// Accent that stays visible on the Dynamic Island's black background.
     var islandAccent: Color {
-        Theme.luminance(main) < 0.25 ? .white : mainColor
+        Theme.contrast(main, 0x000000) < 4.5 ? .white : mainColor
     }
 
-    static func luminance(_ hex: UInt32) -> Double {
-        let r = Double((hex >> 16) & 0xFF) / 255
-        let g = Double((hex >> 8) & 0xFF) / 255
-        let b = Double(hex & 0xFF) / 255
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    /// The text cursor colour, swapped for something visible when the theme's caret blends into the card.
+    var editorCaret: UInt32 {
+        if Theme.contrast(caret, card) >= 3 { return caret }
+        if Theme.contrast(main, card) >= 3 { return main }
+        return text
+    }
+
+    /// Tint for system controls (toggles, prominent buttons) whose white knob or label sits on the tint.
+    var controlTint: Color {
+        Theme.contrast(main, 0xFFFFFF) < 1.5 ? Color(hex: 0x34C759) : mainColor
+    }
+
+    /// True when the card's text is light, i.e. the card behaves like a dark surface.
+    var hasLightText: Bool { Theme.relativeLuminance(text) > Theme.relativeLuminance(card) }
+
+    /// WCAG 2 relative luminance (0 = black, 1 = white).
+    static func relativeLuminance(_ hex: UInt32) -> Double {
+        func channel(_ v: UInt32) -> Double {
+            let s = Double(v) / 255
+            return s <= 0.03928 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * channel((hex >> 16) & 0xFF) + 0.7152 * channel((hex >> 8) & 0xFF) + 0.0722 * channel(hex & 0xFF)
+    }
+
+    /// WCAG 2 contrast ratio between two colours (1...21).
+    static func contrast(_ a: UInt32, _ b: UInt32) -> Double {
+        let x = relativeLuminance(a) + 0.05
+        let y = relativeLuminance(b) + 0.05
+        return max(x, y) / min(x, y)
     }
 }
 
@@ -90,7 +114,7 @@ enum ThemeCatalog {
         Theme(id: "catppuccin-mocha", name: "Catppuccin Mocha", bg: 0x1E1E2E, card: 0x313244, text: 0xCDD6F4, sub: 0x7F849C, main: 0xCBA6F7, caret: 0xF5E0DC, error: 0xF38BA8),
         Theme(id: "catppuccin-macchiato", name: "Catppuccin Macchiato", bg: 0x24273A, card: 0x363A4F, text: 0xCAD3F5, sub: 0x8087A2, main: 0x8AADF4, caret: 0xF4DBD6, error: 0xED8796),
         Theme(id: "tokyo-night", name: "Tokyo Night", bg: 0x1A1B26, card: 0x24283B, text: 0xC0CAF5, sub: 0x565F89, main: 0x7AA2F7, caret: 0xBB9AF7, error: 0xF7768E),
-        Theme(id: "one-dark", name: "One Dark", bg: 0x282C34, card: 0x2F343F, text: 0xABB2BF, sub: 0x5C6370, main: 0x61AFEF, caret: 0xC678DD, error: 0xE06C75),
+        Theme(id: "one-dark", name: "One Dark", bg: 0x282C34, card: 0x2F343F, text: 0xABB2BF, sub: 0x7F848E, main: 0x61AFEF, caret: 0xC678DD, error: 0xE06C75),
         Theme(id: "github-dark", name: "GitHub Dark", bg: 0x0D1117, card: 0x161B22, text: 0xC9D1D9, sub: 0x8B949E, main: 0x58A6FF, caret: 0x58A6FF, error: 0xF85149),
         Theme(id: "vscode", name: "VS Code Dark+", bg: 0x1E1E1E, card: 0x252526, text: 0xD4D4D4, sub: 0x808080, main: 0x007ACC, caret: 0x569CD6, error: 0xF44747),
         Theme(id: "monokai", name: "Monokai", bg: 0x272822, card: 0x3E3D32, text: 0xF8F8F2, sub: 0x75715E, main: 0xF92672, caret: 0x66D9EF, error: 0xFD971F),
@@ -101,7 +125,7 @@ enum ThemeCatalog {
         Theme(id: "ayu-dark", name: "Ayu Dark", bg: 0x0B0E14, card: 0x131721, text: 0xBFBDB6, sub: 0x565B66, main: 0xE6B450, caret: 0xE6B450, error: 0xD95757),
         Theme(id: "night-owl", name: "Night Owl", bg: 0x011627, card: 0x0B2942, text: 0xD6DEEB, sub: 0x637777, main: 0x82AAFF, caret: 0xC792EA, error: 0xEF5350),
         Theme(id: "synthwave", name: "Synthwave '84", bg: 0x262335, card: 0x34294F, text: 0xF4EEE4, sub: 0x848BBD, main: 0xFF7EDB, caret: 0x36F9F6, error: 0xFE4450),
-        Theme(id: "material", name: "Material", bg: 0x263238, card: 0x2E3C43, text: 0xEEFFFF, sub: 0x546E7A, main: 0x80CBC4, caret: 0xFFCC00, error: 0xF07178),
+        Theme(id: "material", name: "Material", bg: 0x263238, card: 0x2E3C43, text: 0xEEFFFF, sub: 0x7A93A0, main: 0x80CBC4, caret: 0xFFCC00, error: 0xF07178),
         Theme(id: "iceberg-dark", name: "Iceberg Dark", bg: 0x161821, card: 0x1E2132, text: 0xC6C8D1, sub: 0x6B7089, main: 0x84A0C6, caret: 0xC6C8D1, error: 0xE27878),
         Theme(id: "cobalt2", name: "Cobalt2", bg: 0x193549, card: 0x1F4662, text: 0xFFFFFF, sub: 0x8FB2C9, main: 0xFFC600, caret: 0xFFC600, error: 0xFF628C),
         Theme(id: "horizon", name: "Horizon", bg: 0x1C1E26, card: 0x232530, text: 0xD5D8DA, sub: 0x6C6F93, main: 0xE95678, caret: 0xFAB795, error: 0xF43E5C),
@@ -114,24 +138,24 @@ enum ThemeCatalog {
         Theme(id: "laser", name: "Laser", bg: 0x221B44, card: 0x2C2457, text: 0xDBE7E8, sub: 0xB82356, main: 0x00B4C8, caret: 0x00B4C8, error: 0xA8D400),
         Theme(id: "miami-nights", name: "Miami Nights", bg: 0x18181A, card: 0x232326, text: 0xFFFFFF, sub: 0x47BAC0, main: 0xE4609B, caret: 0xE4609B, error: 0xFFF591),
         Theme(id: "aurora", name: "Aurora", bg: 0x011926, card: 0x032636, text: 0xFFFFFF, sub: 0x3F7A87, main: 0x00E980, caret: 0x00E980, error: 0xB94DA1),
+        Theme(id: "tokyo-night-storm", name: "Tokyo Night Storm", bg: 0x24283B, card: 0x2F334D, text: 0xC0CAF5, sub: 0x7A82A8, main: 0x7DCFFF, caret: 0xBB9AF7, error: 0xF7768E),
+        Theme(id: "rose-pine-moon", name: "Rosé Pine Moon", bg: 0x232136, card: 0x2A273F, text: 0xE0DEF4, sub: 0x908CAA, main: 0xEA9A97, caret: 0xC4A7E7, error: 0xEB6F92),
         Theme(id: "superuser", name: "Superuser", bg: 0x262A33, card: 0x2F3440, text: 0xE5F7EF, sub: 0x6A8496, main: 0x43FFAF, caret: 0x43FFAF, error: 0xFF5F5F),
 
         // Light themes
-        Theme(id: "serika", name: "Serika", bg: 0xE1E1E3, card: 0xEDEDEF, text: 0x323437, sub: 0x9A9EA3, main: 0xC99F00, caret: 0xE2B714, error: 0xDA3333),
+        Theme(id: "serika", name: "Serika", bg: 0xE1E1E3, card: 0xEDEDEF, text: 0x323437, sub: 0x868A8F, main: 0x9C7B00, caret: 0xE2B714, error: 0xDA3333),
         Theme(id: "nord-light", name: "Nord Light", bg: 0xECEFF4, card: 0xF8F9FB, text: 0x2E3440, sub: 0x8C96A8, main: 0x5E81AC, caret: 0x5E81AC, error: 0xBF616A),
         Theme(id: "gruvbox-light", name: "Gruvbox Light", bg: 0xFBF1C7, card: 0xF2E5BC, text: 0x3C3836, sub: 0x928374, main: 0xB57614, caret: 0xAF3A03, error: 0x9D0006),
         Theme(id: "catppuccin-latte", name: "Catppuccin Latte", bg: 0xEFF1F5, card: 0xFFFFFF, text: 0x4C4F69, sub: 0x8C8FA1, main: 0x8839EF, caret: 0xDC8A78, error: 0xD20F39),
         Theme(id: "tokyo-day", name: "Tokyo Night Day", bg: 0xE1E2E7, card: 0xF0F1F5, text: 0x3760BF, sub: 0x848CB5, main: 0x2E7DE9, caret: 0x9854F1, error: 0xF52A65),
         Theme(id: "github-light", name: "GitHub Light", bg: 0xF6F8FA, card: 0xFFFFFF, text: 0x24292F, sub: 0x6E7781, main: 0x0969DA, caret: 0x0969DA, error: 0xCF222E),
-        Theme(id: "solarized-light", name: "Solarized Light", bg: 0xFDF6E3, card: 0xEEE8D5, text: 0x586E75, sub: 0x93A1A1, main: 0x859900, caret: 0xDC322F, error: 0xD33682),
-        Theme(id: "rose-pine-dawn", name: "Rosé Pine Dawn", bg: 0xFAF4ED, card: 0xFFFAF3, text: 0x575279, sub: 0x9893A5, main: 0xD7827E, caret: 0x907AA9, error: 0xB4637A),
-        Theme(id: "ayu-light", name: "Ayu Light", bg: 0xFCFCFC, card: 0xF3F4F5, text: 0x5C6166, sub: 0x8A9199, main: 0xFA8D3E, caret: 0xFFAA33, error: 0xE65050),
+        Theme(id: "solarized-light", name: "Solarized Light", bg: 0xFDF6E3, card: 0xEEE8D5, text: 0x475B62, sub: 0x7D8C8C, main: 0x6F8000, caret: 0xDC322F, error: 0xD33682),
+        Theme(id: "rose-pine-dawn", name: "Rosé Pine Dawn", bg: 0xFAF4ED, card: 0xFFFAF3, text: 0x575279, sub: 0x8C87A0, main: 0xB4637A, caret: 0x907AA9, error: 0xB4637A),
+        Theme(id: "ayu-light", name: "Ayu Light", bg: 0xFCFCFC, card: 0xF3F4F5, text: 0x5C6166, sub: 0x8A9199, main: 0xD9661A, caret: 0xFFAA33, error: 0xE65050),
         Theme(id: "iceberg-light", name: "Iceberg Light", bg: 0xE8E9EC, card: 0xF4F5F7, text: 0x33374C, sub: 0x8389A3, main: 0x2D539E, caret: 0x262A3F, error: 0xCC517A),
-        Theme(id: "paper", name: "Paper", bg: 0xEEEEEE, card: 0xF8F8F8, text: 0x444444, sub: 0xA8A8A8, main: 0x444444, caret: 0x444444, error: 0xD70000),
+        Theme(id: "paper", name: "Paper", bg: 0xEEEEEE, card: 0xF8F8F8, text: 0x444444, sub: 0x949494, main: 0x444444, caret: 0x444444, error: 0xD70000),
         Theme(id: "lil-dragon", name: "Lil Dragon", bg: 0xEBE1EF, card: 0xF5EEF8, text: 0x212B43, sub: 0xAC76E5, main: 0x8A5BD6, caret: 0x212B43, error: 0xF794CA),
-        Theme(id: "milkshake", name: "Milkshake", bg: 0xFFFFFF, card: 0xF3FAFD, text: 0x212B43, sub: 0x62CFE6, main: 0x212B43, caret: 0x212B43, error: 0xF19DAC),
-        Theme(id: "botanical", name: "Botanical", bg: 0x7B9C98, card: 0x87A7A3, text: 0xEAF1F3, sub: 0x495755, main: 0xEAF1F3, caret: 0xABC6C4, error: 0xF6C9B4),
-        Theme(id: "strawberry", name: "Strawberry", bg: 0xF37F83, card: 0xF58D90, text: 0xFCFCF8, sub: 0xC4304A, main: 0xFCFCF8, caret: 0xFCFCF8, error: 0xFCD23F),
+        Theme(id: "milkshake", name: "Milkshake", bg: 0xFFFFFF, card: 0xF3FAFD, text: 0x212B43, sub: 0x2E97B0, main: 0x212B43, caret: 0x212B43, error: 0xF19DAC),
         Theme(id: "mizu", name: "Mizu", bg: 0xAFCBDD, card: 0xC3D8E6, text: 0x1A2633, sub: 0x6E8FA6, main: 0x1A2633, caret: 0xFCFBF6, error: 0xBF616A),
     ]
 

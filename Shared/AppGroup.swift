@@ -31,4 +31,6 @@ enum AppInfo {
     static let privacyURL = URL(string: "https://mishmashdude.github.io/mynote/privacy.html")!
     static let supportURL = URL(string: "https://mishmashdude.github.io/mynote/support.html")!
     static let feedbackURL = URL(string: "https://github.com/mishmashdude/mynote/issues/new/choose")!
+    static let appStoreID = "6818596761"
+    static let reviewURL = URL(string: "https://apps.apple.com/app/id6818596761?action=write-review")!
 }

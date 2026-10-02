@@ -14,7 +14,9 @@ struct HomeView: View {
     @State private var editor = EditorController()
     @State private var exitStyle = CardExit.archive
 
-    @State private var showLimitAlert = false
+    @State private var limitTick = 0
+    @State private var showLimitBanner = false
+    @State private var limitBannerTask: Task<Void, Never>?
     @State private var showDeleteConfirm = false
     @State private var showArchive = false
     @State private var showSettings = false
@@ -46,18 +48,20 @@ struct HomeView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView().environment(\.theme, theme)
         }
-        .alert("You've reached the \(NoteParser.characterLimit) character limit.", isPresented: $showLimitAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("mynote is built for one clear list, not a long messy note.")
-        }
-        .alert("Live Activities are off", isPresented: $showLiveUnavailable) {
-            Button("Open Settings") {
-                if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+        .alert(LiveActivityManager.deviceSupportsLiveActivities ? "Live Activities are off" : "Live Activities need an iPhone",
+               isPresented: $showLiveUnavailable) {
+            if LiveActivityManager.deviceSupportsLiveActivities {
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                }
+                Button("Cancel", role: .cancel) {}
+            } else {
+                Button("OK", role: .cancel) {}
             }
-            Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Turn on Live Activities for mynote in Settings to keep your list on the Lock Screen.")
+            Text(LiveActivityManager.deviceSupportsLiveActivities
+                 ? "Turn on Live Activities for mynote in Settings to keep your list on the Lock Screen."
+                 : "Your list can appear on the Lock Screen and in the Dynamic Island when mynote runs on an iPhone.")
         }
         .alert("Couldn't go live", isPresented: Binding(get: { liveError != nil }, set: { if !$0 { liveError = nil } })) {
             Button("OK", role: .cancel) {}
@@ -67,8 +71,22 @@ struct HomeView: View {
         .sensoryFeedback(.selection, trigger: toggleTick)
         .sensoryFeedback(.success, trigger: liveTick)
         .sensoryFeedback(.impact(weight: .medium), trigger: archiveTick)
+        .sensoryFeedback(.error, trigger: limitTick)
         .onOpenURL { url in
-            if url.host() == "edit" { beginEditing() }
+            guard url.host() == "edit" else { return }
+            // Close any sheet first so the editor isn't hidden behind it.
+            let hadSheet = showSettings || showArchive
+            showSettings = false
+            showArchive = false
+            showDeleteConfirm = false
+            if hadSheet {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(450))
+                    beginEditing()
+                }
+            } else {
+                beginEditing()
+            }
         }
     }
 
@@ -110,7 +128,7 @@ struct HomeView: View {
             .overlay {
                 // A soft top highlight, like light catching the edge of a glass card.
                 cardShape.fill(
-                    LinearGradient(colors: [.white.opacity(theme.isDark ? 0.05 : 0.6), .clear],
+                    LinearGradient(colors: [.white.opacity(theme.isDark || theme.hasLightText ? 0.05 : 0.6), .clear],
                                    startPoint: .top, endPoint: .init(x: 0.5, y: 0.18))
                 )
             }
@@ -162,8 +180,7 @@ struct HomeView: View {
             Button { UIPasteboard.general.string = store.current.text } label: { Label("Copy", systemImage: "doc.on.doc") }
             todoMenuItems
         }
-        .accessibilityAddTraits(.isButton)
-        .accessibilityHint("Double-tap to edit your note")
+        .accessibilityAction(named: "Edit note") { beginEditing() }
     }
 
     private var editCard: some View {
@@ -184,7 +201,7 @@ struct HomeView: View {
                     font: settings.font,
                     size: settings.textSize.appPointSize,
                     controller: editor,
-                    onLimitHit: { showLimitAlert = true },
+                    onLimitHit: { limitHit() },
                     onEndEditing: { endEditing() }
                 )
             }
@@ -193,7 +210,22 @@ struct HomeView: View {
             .padding(.bottom, 6)
 
             CharacterRing(count: NoteParser.countedLength(store.current.text), limit: NoteParser.characterLimit, theme: theme)
+                .modifier(ShakeEffect(shakes: CGFloat(limitTick)))
+                .animation(.linear(duration: 0.4), value: limitTick)
                 .padding(18)
+        }
+        .overlay(alignment: .bottom) {
+            if showLimitBanner {
+                Text("\(NoteParser.characterLimit)-character limit. mynote is for one clear list.")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(theme.textColor)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .glassEffect(.regular, in: .capsule)
+                    .padding(.bottom, 58)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .accessibilityAddTraits(.isStaticText)
+            }
         }
     }
 
@@ -314,6 +346,19 @@ struct HomeView: View {
 
     // MARK: Actions
 
+    /// Inline feedback instead of an alert, which would steal focus and close the editor.
+    private func limitHit() {
+        limitTick += 1
+        withAnimation(.snappy) { showLimitBanner = true }
+        UIAccessibility.post(notification: .announcement, argument: "Character limit reached")
+        limitBannerTask?.cancel()
+        limitBannerTask = Task {
+            try? await Task.sleep(for: .seconds(2.4))
+            guard !Task.isCancelled else { return }
+            withAnimation(.snappy) { showLimitBanner = false }
+        }
+    }
+
     private func beginEditing() {
         guard !isEditing else { return }
         withAnimation(.smooth(duration: 0.38)) { isEditing = true }
@@ -409,5 +454,18 @@ enum CardExit {
         case .delete:
             .scale(scale: 0.6).combined(with: .opacity)
         }
+    }
+}
+
+/// Horizontal shake used when the character limit is hit.
+private struct ShakeEffect: GeometryEffect {
+    var shakes: CGFloat
+    var animatableData: CGFloat {
+        get { shakes }
+        set { shakes = newValue }
+    }
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        ProjectionTransform(CGAffineTransform(translationX: 5 * sin(shakes * .pi * 4), y: 0))
     }
 }

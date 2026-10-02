@@ -1,3 +1,4 @@
+import ActivityKit
 import AppIntents
 import SwiftUI
 import WidgetKit
@@ -6,6 +7,8 @@ struct NoteEntry: TimelineEntry {
     let date: Date
     let text: String
     let settings: SettingsSnapshot
+    /// Whether the list is actually on the Lock Screen at `date`.
+    var isLive: Bool = false
 }
 
 struct NoteProvider: TimelineProvider {
@@ -19,8 +22,15 @@ struct NoteProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NoteEntry>) -> Void) {
-        let entry = NoteEntry(date: .now, text: NoteFile.load().current.text, settings: .load())
-        completion(Timeline(entries: [entry], policy: .never))
+        let settings = SettingsSnapshot.load()
+        let text = NoteFile.load().current.text
+        let live = settings.isEffectivelyLive && ActivityAuthorizationInfo().areActivitiesEnabled
+        var entries = [NoteEntry(date: .now, text: text, settings: settings, isLive: live)]
+        if live, let end = settings.coveredUntil {
+            // Flip to the Go Live button the moment the relay runs out.
+            entries.append(NoteEntry(date: end, text: text, settings: settings, isLive: false))
+        }
+        completion(Timeline(entries: entries, policy: .never))
     }
 }
 
@@ -80,7 +90,8 @@ struct NoteWidgetView: View {
                 theme: theme,
                 font: entry.settings.font,
                 size: size,
-                maxLines: maxLines
+                maxLines: maxLines,
+                allowsColumns: family != .systemSmall
             )
         }
         .containerBackground(for: .widget) {
@@ -90,7 +101,7 @@ struct NoteWidgetView: View {
 
     @ViewBuilder
     private func liveBadge(theme: Theme) -> some View {
-        if entry.settings.liveEnabled {
+        if entry.isLive {
             HStack(spacing: 4) {
                 Circle().fill(theme.mainColor).frame(width: 6, height: 6)
                 Text("Live")

@@ -28,6 +28,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andi.mynote
         PRODUCT_NAME: mynote
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
         CODE_SIGN_ENTITLEMENTS: mynote/mynote.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -71,6 +74,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andi.mynote.widgets
         PRODUCT_NAME: mynoteWidgets
+        TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_ENTITLEMENTS: mynoteWidgets/mynoteWidgets.entitlements
         SKIP_INSTALL: YES
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) WIDGET_EXTENSION
@@ -93,6 +97,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andi.mynote.tests
         GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) WIDGET_EXTENSION
 schemes:
   mynote:

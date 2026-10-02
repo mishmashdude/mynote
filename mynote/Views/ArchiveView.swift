@@ -39,7 +39,7 @@ struct ArchiveView: View {
                                 Button { restore(note) } label: {
                                     Label("Restore", systemImage: "arrow.uturn.backward")
                                 }
-                                .tint(theme.mainColor)
+                                .tint(.indigo)
                             }
                         }
                         .onDelete { offsets in

@@ -111,7 +111,7 @@ struct LiveActivitySettingsView: View {
             } header: {
                 Text("Keep It There").foregroundStyle(theme.subColor)
             }
-            .tint(theme.mainColor)
+            .tint(theme.controlTint)
             .listRowBackground(theme.cardColor)
         }
         .themedList(theme)
@@ -137,7 +137,8 @@ struct LiveActivitySettingsView: View {
             Label("Live", systemImage: "circle.fill")
                 .labelStyle(StatusLabelStyle(color: theme.mainColor))
         case .unavailable:
-            Text("Turned off in iOS Settings").foregroundStyle(theme.errorColor)
+            Text(LiveActivityManager.deviceSupportsLiveActivities ? "Turned off in iOS Settings" : "Needs an iPhone")
+                .foregroundStyle(theme.errorColor)
         case .failed:
             Text("Needs attention").foregroundStyle(theme.errorColor)
         default:

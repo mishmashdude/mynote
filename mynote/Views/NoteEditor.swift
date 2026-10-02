@@ -47,7 +47,7 @@ struct NoteTextView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
     func makeUIView(context: Context) -> UITextView {
-        let tv = UITextView()
+        let tv = NoteUITextView()
         tv.backgroundColor = .clear
         tv.textContainerInset = UIEdgeInsets(top: 2, left: 0, bottom: 44, right: 0)
         tv.textContainer.lineFragmentPadding = 0
@@ -70,7 +70,7 @@ struct NoteTextView: UIViewRepresentable {
         coordinator.parent = self
         controller.textView = tv
         controller.coordinator = coordinator
-        if tv.text != text {
+        if tv.text != text, tv.markedTextRange == nil {
             tv.text = text
             coordinator.restyle(tv)
         } else if styleChanged {
@@ -91,29 +91,34 @@ struct NoteTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: NoteTextView
         private var isProgrammatic = false
+        /// The last committed text that was within the limit.
+        private var lastValidText: String
 
-        init(parent: NoteTextView) { self.parent = parent }
+        init(parent: NoteTextView) {
+            self.parent = parent
+            self.lastValidText = parent.text
+        }
 
         // MARK: Delegate
 
         func textView(_ tv: UITextView, shouldChangeTextIn range: NSRange, replacementText string: String) -> Bool {
             if isProgrammatic { return true }
-            let current = tv.text as NSString
+            // While composing (pinyin, kana…) let the keyboard work. The marked letters
+            // aren't the final text, so the limit is checked once the text is committed.
+            if tv.markedTextRange != nil { return true }
 
-            if string == "\n", tv.markedTextRange == nil, handleReturn(in: tv, range: range) {
+            if string == "\n", handleReturn(in: tv, range: range) {
                 return false
             }
 
+            let current = tv.text as NSString
             let proposed = current.replacingCharacters(in: range, with: string)
             let limit = NoteParser.characterLimit
-            if NoteParser.countedLength(proposed) > limit, NoteParser.countedLength(proposed) > NoteParser.countedLength(tv.text) {
-                // Paste: keep as much as fits.
-                if string.count > 1 {
-                    var fitted = string
-                    while !fitted.isEmpty,
-                          NoteParser.countedLength(current.replacingCharacters(in: range, with: fitted)) > limit {
-                        fitted.removeLast()
-                    }
+            let proposedLength = NoteParser.countedLength(proposed)
+            if proposedLength > limit, proposedLength > NoteParser.countedLength(tv.text) {
+                // A real paste keeps as much as fits; anything else is simply refused.
+                if (tv as? NoteUITextView)?.isPasting == true {
+                    let fitted = fittedPaste(string, into: current, range: range)
                     if !fitted.isEmpty { replace(in: tv, range: range, with: fitted) }
                 }
                 parent.onLimitHit()
@@ -123,6 +128,14 @@ struct NoteTextView: UIViewRepresentable {
         }
 
         func textViewDidChange(_ tv: UITextView) {
+            if tv.markedTextRange == nil {
+                let length = NoteParser.countedLength(tv.text)
+                if length > NoteParser.characterLimit, length > NoteParser.countedLength(lastValidText) {
+                    // Something bypassed shouldChangeText (a committed IME phrase, dictation): roll it back.
+                    tv.text = lastValidText
+                    parent.onLimitHit()
+                }
+            }
             sync(tv)
         }
 
@@ -130,9 +143,30 @@ struct NoteTextView: UIViewRepresentable {
             if !parent.isFocused { parent.isFocused = true }
         }
 
-        func textViewDidEndEditing(_ textView: UITextView) {
+        func textViewDidEndEditing(_ tv: UITextView) {
+            // A share sheet or alert from the edit menu took focus — stay in edit mode.
+            if let presented = tv.window?.rootViewController?.presentedViewController, !presented.isBeingDismissed {
+                return
+            }
             if parent.isFocused { parent.isFocused = false }
             parent.onEndEditing()
+        }
+
+        /// Longest prefix of `string` that fits under the limit (binary search, so huge pastes stay fast).
+        private func fittedPaste(_ string: String, into current: NSString, range: NSRange) -> String {
+            let chars = Array(string.prefix(4_000))
+            var low = 0
+            var high = chars.count
+            while low < high {
+                let mid = (low + high + 1) / 2
+                let candidate = current.replacingCharacters(in: range, with: String(chars[..<mid]))
+                if NoteParser.countedLength(candidate) <= NoteParser.characterLimit {
+                    low = mid
+                } else {
+                    high = mid - 1
+                }
+            }
+            return String(chars[..<low])
         }
 
         // MARK: Lists
@@ -178,7 +212,12 @@ struct NoteTextView: UIViewRepresentable {
         }
 
         private func sync(_ tv: UITextView) {
-            if tv.markedTextRange == nil { restyle(tv) }
+            // Don't save or broadcast half-composed IME text.
+            guard tv.markedTextRange == nil else { return }
+            restyle(tv)
+            if NoteParser.countedLength(tv.text) <= NoteParser.characterLimit {
+                lastValidText = tv.text
+            }
             if parent.text != tv.text { parent.text = tv.text }
         }
 
@@ -196,7 +235,7 @@ struct NoteTextView: UIViewRepresentable {
 
         func restyle(_ tv: UITextView) {
             let theme = parent.theme
-            tv.tintColor = UIColor(hex: theme.caret)
+            tv.tintColor = UIColor(hex: theme.editorCaret)
             tv.keyboardAppearance = theme.isDark ? .dark : .light
             let base = baseAttributes
             let storage = tv.textStorage
@@ -240,7 +279,10 @@ struct CharacterRing: View {
 
     private var remaining: Int { limit - count }
     private var color: Color {
-        remaining <= 0 ? theme.errorColor : remaining <= 20 ? theme.caretColor : theme.subColor
+        if remaining <= 0 {
+            return Theme.contrast(theme.error, theme.card) >= 3 ? theme.errorColor : theme.textColor
+        }
+        return remaining <= 20 ? Color(hex: theme.editorCaret) : theme.subColor
     }
 
     var body: some View {
@@ -260,5 +302,16 @@ struct CharacterRing: View {
         .frame(width: 24, height: 24)
         .animation(.snappy, value: count)
         .accessibilityLabel("\(max(remaining, 0)) characters left")
+    }
+}
+
+/// A UITextView that knows when the text change comes from a real paste.
+final class NoteUITextView: UITextView {
+    private(set) var isPasting = false
+
+    override func paste(_ sender: Any?) {
+        isPasting = true
+        super.paste(sender)
+        isPasting = false
     }
 }

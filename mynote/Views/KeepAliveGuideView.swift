@@ -31,7 +31,7 @@ struct KeepAliveGuideView: View {
                         if !notificationsAllowed {
                             Button("Allow Notifications") { allowNotifications() }
                                 .buttonStyle(.glassProminent)
-                                .tint(theme.mainColor)
+                                .tint(theme.controlTint)
                         }
                     }
                 }

@@ -98,7 +98,7 @@ struct LockScreenLiveView: View {
         let palette = LivePalette(style: context.state.style, theme: theme)
         Group {
             if family == .small {
-                smallView(theme: theme)
+                smallView(palette: palette)
             } else {
                 LiveNoteView(state: context.state, isStale: context.isStale)
             }
@@ -109,17 +109,18 @@ struct LockScreenLiveView: View {
     }
 
     /// Apple Watch Smart Stack / CarPlay.
-    private func smallView(theme: Theme) -> some View {
+    private func smallView(palette: LivePalette) -> some View {
         let lines = NoteParser.visibleLines(context.state.text)
         return FittedNoteLines(
             lines: lines,
             maxLines: 3,
             font: context.state.font,
             size: 13,
-            text: theme.textColor,
-            sub: theme.subColor,
-            accent: theme.mainColor,
-            spacing: 2
+            text: palette.text,
+            sub: palette.sub,
+            accent: palette.accent,
+            spacing: 2,
+            allowsColumns: false
         )
         .padding(10)
     }

@@ -10,7 +10,7 @@ struct Note: Codable, Identifiable, Hashable, Sendable {
     var isEmpty: Bool { text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }
 
-struct NoteDocument: Codable, Sendable {
+struct NoteDocument: Codable, Equatable, Sendable {
     var current: Note = Note()
     var archived: [Note] = []
 }
@@ -21,10 +21,21 @@ enum NoteFile {
     static var url: URL { AppGroup.containerURL.appendingPathComponent("notes.json") }
 
     static func load() -> NoteDocument {
-        guard let data = try? Data(contentsOf: url),
-              let doc = try? JSONDecoder().decode(NoteDocument.self, from: data)
-        else { return NoteDocument() }
-        return doc
+        guard let data = try? Data(contentsOf: url) else { return NoteDocument() }
+        if let doc = try? JSONDecoder().decode(NoteDocument.self, from: data) {
+            return doc
+        }
+        // Never silently throw notes away: keep the unreadable file next to the new one.
+        let backup = url.deletingLastPathComponent()
+            .appendingPathComponent("notes-unreadable-\(Int(Date().timeIntervalSince1970)).json")
+        try? FileManager.default.copyItem(at: url, to: backup)
+        return NoteDocument()
+    }
+
+    /// The document on disk, or nil when there is no file or it can't be read.
+    static func loadExisting() -> NoteDocument? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(NoteDocument.self, from: data)
     }
 
     static func save(_ doc: NoteDocument) {

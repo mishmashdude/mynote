@@ -55,39 +55,69 @@ struct NoteLinesView: View {
                     .lineLimit(lineLimit)
             }
         case .todo(let checked):
-            HStack(alignment: .firstTextBaseline, spacing: size * 0.5) {
-                checkbox(line: line.id, checked: checked)
-                Text(line.content)
-                    .font(font.font(size: size))
-                    .strikethrough(checked, color: sub)
-                    .foregroundStyle(checked ? sub : text)
-                    .lineLimit(lineLimit)
-                    .contentTransition(.opacity)
-            }
+            todoRow(line, checked: checked)
         }
     }
 
     @ViewBuilder
-    private func checkbox(line: Int, checked: Bool) -> some View {
-        let icon = Image(systemName: checked ? "checkmark.square.fill" : "square")
+    private func todoRow(_ line: NoteLine, checked: Bool) -> some View {
+        let state = checked ? "Checked" : "Unchecked"
+        switch interaction {
+        case .none:
+            HStack(alignment: .firstTextBaseline, spacing: size * 0.5) {
+                checkboxIcon(checked)
+                todoText(line, checked: checked)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(line.content)
+            .accessibilityValue(state)
+        case .intents:
+            // On widgets and the Lock Screen the whole row is the tap target.
+            Button(intent: ToggleItemIntent(line: line.id, content: line.content)) {
+                HStack(alignment: .firstTextBaseline, spacing: size * 0.5) {
+                    checkboxIcon(checked)
+                    todoText(line, checked: checked)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(line.content)
+            .accessibilityValue(state)
+            .accessibilityAddTraits(.isToggle)
+        case .action(let toggle):
+            // In the app only the box toggles; tapping the text edits the note.
+            HStack(alignment: .firstTextBaseline, spacing: size * 0.5) {
+                Button { toggle(line.id) } label: {
+                    checkboxIcon(checked)
+                        .padding(10)
+                        .contentShape(Rectangle())
+                        .padding(-10)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(line.content)
+                .accessibilityValue(state)
+                .accessibilityAddTraits(.isToggle)
+                todoText(line, checked: checked)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private func checkboxIcon(_ checked: Bool) -> some View {
+        Image(systemName: checked ? "checkmark.square.fill" : "square")
             .font(.system(size: size * 0.98, weight: .semibold))
             .foregroundStyle(checked ? accent : accent.opacity(0.85))
             .contentTransition(.symbolEffect(.replace))
-        switch interaction {
-        case .none:
-            icon
-        case .intents:
-            Button(intent: ToggleItemIntent(line: line)) { icon }
-                .buttonStyle(.plain)
-        case .action(let toggle):
-            Button { toggle(line) } label: {
-                icon
-                    .padding(10)
-                    .contentShape(Rectangle())
-                    .padding(-10)
-            }
-            .buttonStyle(.plain)
-        }
+    }
+
+    private func todoText(_ line: NoteLine, checked: Bool) -> some View {
+        Text(line.content)
+            .font(font.font(size: size))
+            .strikethrough(checked, color: sub)
+            .foregroundStyle(checked ? sub : text)
+            .lineLimit(lineLimit)
+            .contentTransition(.opacity)
     }
 }
 
@@ -102,9 +132,12 @@ struct FittedNoteLines: View {
     let accent: Color
     var spacing: CGFloat = 4
     var interaction: NoteLinesView.Interaction = .none
+    /// Two columns only make sense where there's horizontal room (not small widgets / Watch).
+    var allowsColumns = true
 
     var body: some View {
-        let useColumns = lines.count > maxLines
+        let useColumns = allowsColumns
+            && lines.count > maxLines
             && lines.count <= maxLines * 2
             && lines.allSatisfy { $0.content.count <= 18 && $0.kind != .heading }
         if useColumns {
@@ -215,6 +248,7 @@ struct LiveNoteView: View {
                             text: palette.text,
                             sub: palette.sub,
                             accent: palette.accent,
+                            spacing: 3,
                             interaction: interactive ? .intents : .none
                         )
                     }
@@ -223,7 +257,7 @@ struct LiveNoteView: View {
                     }
                 }
                 .padding(.horizontal, 18)
-                .padding(.vertical, 16)
+                .padding(.vertical, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -269,6 +303,7 @@ struct WidgetNoteContent: View {
     let size: CGFloat
     let maxLines: Int
     var interactive: Bool = true
+    var allowsColumns: Bool = true
 
     var body: some View {
         let lines = NoteParser.visibleLines(text)
@@ -287,7 +322,8 @@ struct WidgetNoteContent: View {
                 sub: theme.subColor,
                 accent: theme.mainColor,
                 spacing: 3,
-                interaction: interactive ? .intents : .none
+                interaction: interactive ? .intents : .none,
+                allowsColumns: allowsColumns
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }

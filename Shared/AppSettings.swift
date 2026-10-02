@@ -16,6 +16,7 @@ private enum Key {
     static let expiryReminders = "expiryReminders"
     static let hasOnboarded = "hasOnboarded"
     static let activitySequence = "activitySequence"
+    static let coveredUntil = "liveCoveredUntil"
 }
 
 /// Which theme(s) the user picked. Plain value so widgets can use it too.
@@ -53,6 +54,21 @@ struct SettingsSnapshot: Sendable {
     var autoRelay: Bool
     var silentRelay: Bool
     var expiryReminders: Bool
+    /// When the last scheduled Live Activity ends (nil when nothing is scheduled).
+    var coveredUntil: Date?
+
+    /// True when the user wants Live on *and* something should still be on the Lock Screen.
+    var isEffectivelyLive: Bool {
+        liveEnabled && (coveredUntil ?? .distantPast) > .now
+    }
+
+    static func storeCoveredUntil(_ date: Date?) {
+        if let date {
+            AppGroup.defaults.set(date, forKey: Key.coveredUntil)
+        } else {
+            AppGroup.defaults.removeObject(forKey: Key.coveredUntil)
+        }
+    }
 
     static func load(_ d: UserDefaults = AppGroup.defaults) -> SettingsSnapshot {
         SettingsSnapshot(
@@ -68,7 +84,8 @@ struct SettingsSnapshot: Sendable {
             liveEnabled: d.bool(forKey: Key.liveEnabled),
             autoRelay: d.object(forKey: Key.autoRelay) as? Bool ?? true,
             silentRelay: d.object(forKey: Key.silentRelay) as? Bool ?? true,
-            expiryReminders: d.object(forKey: Key.expiryReminders) as? Bool ?? true
+            expiryReminders: d.object(forKey: Key.expiryReminders) as? Bool ?? true,
+            coveredUntil: d.object(forKey: Key.coveredUntil) as? Date
         )
     }
 

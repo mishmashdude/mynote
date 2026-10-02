@@ -1,11 +1,9 @@
-import StoreKit
 import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @Environment(\.openURL) private var openURL
-    @Environment(\.requestReview) private var requestReview
 
     private var settings = AppSettings.shared
 
@@ -45,7 +43,7 @@ struct SettingsView: View {
                     Button { openURL(AppInfo.feedbackURL) } label: {
                         SettingsRow(icon: "bubble.left", title: "Give Feedback")
                     }
-                    Button { requestReview() } label: {
+                    Button { openURL(AppInfo.reviewURL) } label: {
                         SettingsRow(icon: "star", title: "Rate mynote")
                     }
                     NavigationLink { AboutView() } label: {
@@ -205,7 +203,7 @@ struct WidgetInfoView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(spacing: 14) {
                         widgetPreview(width: 300, height: 141, maxLines: 5)
-                        widgetPreview(width: 141, height: 141, maxLines: 6)
+                        widgetPreview(width: 141, height: 141, maxLines: 6, allowsColumns: false)
                     }
                     .frame(maxWidth: .infinity)
                     VStack(alignment: .leading, spacing: 6) {
@@ -232,13 +230,14 @@ struct WidgetInfoView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func widgetPreview(width: CGFloat, height: CGFloat, maxLines: Int) -> some View {
+    private func widgetPreview(width: CGFloat, height: CGFloat, maxLines: Int, allowsColumns: Bool = true) -> some View {
         let sample = NoteStore.shared.current.isEmpty
             ? "[x] Ship the update\n[ ] Reply to Sam\n[ ] Gym at 6\n- Coffee beans"
             : NoteStore.shared.current.text
         let widgetTheme = settings.theme(for: theme.colorScheme)
         return WidgetNoteContent(text: sample, theme: widgetTheme, font: settings.font,
-                                 size: settings.textSize.widgetPointSize, maxLines: maxLines, interactive: false)
+                                 size: settings.textSize.widgetPointSize, maxLines: maxLines, interactive: false,
+                                 allowsColumns: allowsColumns)
             .padding(16)
             .frame(width: width, height: height)
             .background(widgetTheme.cardColor, in: RoundedRectangle(cornerRadius: 24, style: .continuous))

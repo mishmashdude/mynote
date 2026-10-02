@@ -101,3 +101,25 @@ struct ThemeTests {
         #expect(fixed.forcedScheme == .dark)
     }
 }
+
+struct ContrastTests {
+    @Test func wcagContrastMatchesKnownValues() {
+        #expect(abs(Theme.contrast(0x000000, 0xFFFFFF) - 21) < 0.01)
+        #expect(abs(Theme.contrast(0xFFFFFF, 0xFFFFFF) - 1) < 0.01)
+    }
+
+    @Test func everyThemeIsReadable() {
+        for t in ThemeCatalog.all {
+            let text = min(Theme.contrast(t.text, t.card), Theme.contrast(t.text, t.bg))
+            #expect(text >= 4.5, "\(t.name) text contrast \(text)")
+            #expect(Theme.contrast(t.main, t.card) >= 2.5, "\(t.name) accent contrast")
+            #expect(Theme.contrast(t.editorCaret, t.card) >= 3 || t.editorCaret == t.text, "\(t.name) caret")
+        }
+    }
+
+    @Test func darkThemesHaveLightText() {
+        for t in ThemeCatalog.all where t.isDark {
+            #expect(t.hasLightText, "\(t.name)")
+        }
+    }
+}

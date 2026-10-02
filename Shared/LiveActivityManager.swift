@@ -3,6 +3,7 @@ import Foundation
 import Observation
 import SwiftUI
 import UserNotifications
+import WidgetKit
 #if !WIDGET_EXTENSION
 import BackgroundTasks
 #endif
@@ -60,8 +61,16 @@ final class LiveActivityManager {
     }
 
     private(set) var status: Status = .off
-    /// When the last scheduled activity in the relay will end.
-    private(set) var coveredUntil: Date?
+    /// When the last scheduled activity in the relay will end. Shared with the widget and
+    /// the Control so they can tell whether anything is really on the Lock Screen.
+    private(set) var coveredUntil: Date? {
+        didSet {
+            guard coveredUntil != oldValue else { return }
+            SettingsSnapshot.storeCoveredUntil(coveredUntil)
+            WidgetCenter.shared.reloadAllTimelines()
+            ControlCenterReloader.reload()
+        }
+    }
     /// Number of future activities currently scheduled.
     private(set) var scheduledCount = 0
 
@@ -71,6 +80,11 @@ final class LiveActivityManager {
     private init() {}
 
     var activitiesEnabled: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
+
+    /// Live Activities only exist on iPhone (not on iPad or when the iPhone app runs on a Mac).
+    static var deviceSupportsLiveActivities: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone && !ProcessInfo.processInfo.isiOSAppOnMac
+    }
     private var activities: [NoteActivity] { NoteActivity.activities }
 
     private var running: [NoteActivity] {
@@ -86,24 +100,65 @@ final class LiveActivityManager {
     }
 
     // MARK: - Public API
+    //
+    // Every operation is queued and runs one at a time. Without this, overlapping calls
+    // (a double tap on the Refresh control, an intent racing the app coming to the
+    // foreground) could each start their own activity and leave duplicates behind.
+
+    @ObservationIgnored private var lastOperation: Task<Void, Never>?
+
+    private func serially<T>(_ body: @escaping @MainActor () async -> T) async -> T {
+        let previous = lastOperation
+        let operation = Task { @MainActor () -> T in
+            await previous?.value
+            return await body()
+        }
+        lastOperation = Task { _ = await operation.value }
+        return await operation.value
+    }
 
     /// Turn Live on and put the note on the Lock Screen right now.
     @discardableResult
     func goLive() async -> Bool {
+        await serially { await self.performGoLive() }
+    }
+
+    /// Turn Live off and remove every activity.
+    func stop() async {
+        await serially { await self.performStop() }
+    }
+
+    /// Replace everything with a brand-new activity (fresh 8-hour clock) and a new relay.
+    func restart() async {
+        await serially { await self.performRestart() }
+    }
+
+    /// Bring the activities in line with what the user wants. Safe to call any time.
+    func reconcile(fromBackground: Bool = false) async {
+        await serially { await self.performReconcile(fromBackground: fromBackground) }
+    }
+
+    /// Re-create the scheduled activities (e.g. after the Silent Refresh setting changes).
+    func restartRelayIfLive() async {
+        await serially { await self.performRestartRelay() }
+    }
+
+    // MARK: - Operations (only ever called through `serially`)
+
+    private func performGoLive() async -> Bool {
         guard activitiesEnabled else {
             status = .unavailable
             return false
         }
         AppSettings.shared.liveEnabled = true
-        await restart()
+        await performRestart()
         if status != .live {
             AppSettings.shared.liveEnabled = false
         }
         return status == .live
     }
 
-    /// Turn Live off and remove every activity.
-    func stop() async {
+    private func performStop() async {
         AppSettings.shared.liveEnabled = false
         for activity in activities {
             await activity.end(nil, dismissalPolicy: .immediate)
@@ -114,12 +169,12 @@ final class LiveActivityManager {
         ExpiryReminder.cancel()
     }
 
-    /// Replace everything with a brand-new activity (fresh 8-hour clock) and a new relay.
-    func restart() async {
+    private func performRestart() async {
         startObserving()
         for activity in activities {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
+        guard SettingsSnapshot.load().liveEnabled else { return }
         do {
             try requestNow()
         } catch {
@@ -132,12 +187,10 @@ final class LiveActivityManager {
         scheduleSafetyNets()
     }
 
-    /// Bring the activities in line with what the user wants. Safe to call any time.
-    func reconcile(fromBackground: Bool = false) async {
+    private func performReconcile(fromBackground: Bool) async {
         startObserving()
         Log.live.notice("reconcile in \(Log.process, privacy: .public): \(self.activities.count) activities [\(self.activities.map { "\($0.activityState)" }.joined(separator: ","), privacy: .public)]")
-        let settings = SettingsSnapshot.load()
-        guard settings.liveEnabled else {
+        guard SettingsSnapshot.load().liveEnabled else {
             for activity in activities {
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
@@ -160,7 +213,7 @@ final class LiveActivityManager {
         }
 
         // 2. Keep only the newest running activity that still has time left.
-        let keeper = running.first { $0.attributes.startedAt.addingTimeInterval(Self.lifetime) > now.addingTimeInterval(60) }
+        var keeper = running.first { $0.attributes.startedAt.addingTimeInterval(Self.lifetime) > now.addingTimeInterval(60) }
         for activity in running where activity.id != keeper?.id {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
@@ -171,15 +224,22 @@ final class LiveActivityManager {
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
             do {
-                try requestNow()
+                keeper = try requestNow()
             } catch {
                 if !fromBackground { status = .failed(error.localizedDescription) }
             }
-        } else if let keeper, !fromBackground, !SettingsSnapshot.load().autoRelay,
-                  now.timeIntervalSince(keeper.attributes.startedAt) > 4 * 60 * 60 {
+        } else if let current = keeper, !fromBackground, !SettingsSnapshot.load().autoRelay,
+                  now.timeIntervalSince(current.attributes.startedAt) > 4 * 60 * 60 {
             // Without the relay, top the clock back up whenever the app is opened.
-            await keeper.end(nil, dismissalPolicy: .immediate)
-            try? requestNow()
+            if let fresh = try? requestNow() {
+                await current.end(nil, dismissalPolicy: .immediate)
+                keeper = fresh
+            }
+        }
+
+        // Anything else still running is a leftover; keep exactly one on screen.
+        for activity in running where activity.id != keeper?.id {
+            await activity.end(nil, dismissalPolicy: .immediate)
         }
 
         // 4. Make sure future activities are lined up, and everything shows the latest note.
@@ -189,8 +249,7 @@ final class LiveActivityManager {
         scheduleSafetyNets()
     }
 
-    /// Re-create the scheduled activities (e.g. after the Silent Refresh setting changes).
-    func restartRelayIfLive() async {
+    private func performRestartRelay() async {
         guard SettingsSnapshot.load().liveEnabled else { return }
         for activity in pending {
             await activity.end(nil, dismissalPolicy: .immediate)
@@ -209,7 +268,7 @@ final class LiveActivityManager {
                 try? await Task.sleep(for: .milliseconds(350))
             }
             guard !Task.isCancelled else { return }
-            await pushContent()
+            await serially { await self.pushContent() }
         }
     }
 
@@ -238,9 +297,10 @@ final class LiveActivityManager {
         )
     }
 
-    private func requestNow() throws {
+    @discardableResult
+    private func requestNow() throws -> NoteActivity {
         let attributes = NoteActivityAttributes(startedAt: .now, sequence: SettingsSnapshot.nextActivitySequence())
-        _ = try NoteActivity.request(
+        return try NoteActivity.request(
             attributes: attributes,
             content: content(for: attributes, state: makeState()),
             pushType: nil

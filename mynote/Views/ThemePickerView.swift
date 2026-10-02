@@ -33,7 +33,7 @@ struct ThemePickerView: View {
 
             Section {
                 Toggle("Match System Appearance", isOn: $settings.matchSystem.animation(.smooth))
-                    .tint(theme.mainColor)
+                    .tint(theme.controlTint)
                 if settings.matchSystem {
                     Picker("Editing", selection: $slot) {
                         ForEach(Slot.allCases) { Text($0.rawValue).tag($0) }
@@ -48,10 +48,15 @@ struct ThemePickerView: View {
             }
             .listRowBackground(theme.cardColor)
 
-            let preferDark = settings.matchSystem ? slot == .dark : colorScheme == .dark
-            let groups: [(String, [Theme])] = preferDark
-                ? [("Dark", ThemeCatalog.darkThemes), ("Light", ThemeCatalog.lightThemes)]
-                : [("Light", ThemeCatalog.lightThemes), ("Dark", ThemeCatalog.darkThemes)]
+            // When pairing themes with the system, each slot only offers themes of its kind,
+            // so system text (titles, search) always matches the theme's brightness.
+            let groups: [(String, [Theme])] = if settings.matchSystem {
+                slot == .dark ? [("Dark", ThemeCatalog.darkThemes)] : [("Light", ThemeCatalog.lightThemes)]
+            } else if colorScheme == .dark {
+                [("Dark", ThemeCatalog.darkThemes), ("Light", ThemeCatalog.lightThemes)]
+            } else {
+                [("Light", ThemeCatalog.lightThemes), ("Dark", ThemeCatalog.darkThemes)]
+            }
 
             ForEach(groups, id: \.0) { title, themes in
                 let visible = themes.filter(matches)
