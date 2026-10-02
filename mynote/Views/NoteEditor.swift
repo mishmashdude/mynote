@@ -9,6 +9,13 @@ final class EditorController {
     fileprivate weak var textView: UITextView?
     fileprivate weak var coordinator: NoteTextView.Coordinator?
 
+    /// Finishes any in-progress IME composition so it's saved before leaving the editor.
+    func commitComposition() {
+        guard let tv = textView, tv.markedTextRange != nil else { return }
+        tv.unmarkText()
+        coordinator?.syncNow(tv)
+    }
+
     /// Adds, swaps or removes the list marker at the start of the current line.
     func toggle(_ marker: Marker) {
         guard let tv = textView, let coordinator else { return }
@@ -222,6 +229,8 @@ struct NoteTextView: UIViewRepresentable {
             isProgrammatic = false
             sync(tv)
         }
+
+        func syncNow(_ tv: UITextView) { sync(tv) }
 
         private func sync(_ tv: UITextView) {
             // Don't save or broadcast half-composed IME text.

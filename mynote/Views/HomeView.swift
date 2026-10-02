@@ -371,6 +371,7 @@ struct HomeView: View {
 
     private func endEditing() {
         guard isEditing else { return }
+        editor.commitComposition()
         let tidied = NoteParser.tidy(store.current.text)
         if tidied != store.current.text { store.setText(tidied) }
         editorFocused = false

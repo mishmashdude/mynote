@@ -1,0 +1,11 @@
+mynote is a single-note checklist app. No account or sign-in is needed.
+
+How to test the main feature:
+1. Open the app and tap Get Started (a sample checklist is pre-filled).
+2. Tap "Go Live" at the bottom of the screen. Allow Live Activities (and notifications if you like).
+3. Lock the device: the checklist appears on the Lock Screen as a Live Activity (and in the Dynamic Island). Tap a checkbox there to tick it off without opening the app.
+4. ⋯ menu > Settings > Theme to try the 50 colour themes. Settings > Live Activity shows the appearance options and the Auto-Refresh setting.
+
+About the Live Activity: it only starts when the user taps Go Live and only ever shows the user's own note. iOS ends each Live Activity after 8 hours. When Auto-Refresh is on (user-controllable in Settings > Live Activity), mynote uses the iOS 26 scheduled-start API (Activity.request with a start date) to line up the next activity just before the previous one ends, so the list the user pinned stays visible, which is the core purpose of the app. Tapping "Live" again (or the "Hide mynote from Lock Screen" shortcut) removes it immediately. The optional expiry reminder is a local notification and can be turned off.
+
+Live Activities require an iPhone; the app is iPhone-only.
