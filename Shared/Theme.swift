@@ -49,9 +49,14 @@ struct Theme: Identifiable, Hashable, Sendable {
         return text
     }
 
-    /// Tint for system controls (toggles, prominent buttons) whose white knob or label sits on the tint.
+    /// Tint for toggles, whose white knob sits on the tint.
     var controlTint: Color {
         Theme.contrast(main, 0xFFFFFF) < 1.5 ? Color(hex: 0x34C759) : mainColor
+    }
+
+    /// Error colour that stays readable on the card.
+    var readableErrorColor: Color {
+        Theme.contrast(error, card) >= 3 ? errorColor : textColor
     }
 
     /// True when the card's text is light, i.e. the card behaves like a dark surface.

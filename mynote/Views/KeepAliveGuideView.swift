@@ -29,9 +29,11 @@ struct KeepAliveGuideView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("If the chain ever runs out, mynote sends a notification shortly before. Tap it and your list is straight back.")
                         if !notificationsAllowed {
-                            Button("Allow Notifications") { allowNotifications() }
-                                .buttonStyle(.glassProminent)
-                                .tint(theme.controlTint)
+                            Button { allowNotifications() } label: {
+                                Text("Allow Notifications").foregroundStyle(theme.onMainColor)
+                            }
+                            .buttonStyle(.glassProminent)
+                            .tint(theme.mainColor)
                         }
                     }
                 }

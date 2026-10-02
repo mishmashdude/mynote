@@ -73,7 +73,7 @@ struct NoteLinesView: View {
             .accessibilityValue(state)
         case .intents:
             // On widgets and the Lock Screen the whole row is the tap target.
-            Button(intent: ToggleItemIntent(line: line.id, content: line.content)) {
+            Button(intent: ToggleItemIntent(line: line.id, content: line.content, wasChecked: checked)) {
                 HStack(alignment: .firstTextBaseline, spacing: size * 0.5) {
                     checkboxIcon(checked)
                     todoText(line, checked: checked)

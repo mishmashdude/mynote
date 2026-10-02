@@ -138,9 +138,9 @@ struct LiveActivitySettingsView: View {
                 .labelStyle(StatusLabelStyle(color: theme.mainColor))
         case .unavailable:
             Text(LiveActivityManager.deviceSupportsLiveActivities ? "Turned off in iOS Settings" : "Needs an iPhone")
-                .foregroundStyle(theme.errorColor)
+                .foregroundStyle(theme.readableErrorColor)
         case .failed:
-            Text("Needs attention").foregroundStyle(theme.errorColor)
+            Text("Needs attention").foregroundStyle(theme.readableErrorColor)
         default:
             Text("Off").foregroundStyle(theme.subColor)
         }

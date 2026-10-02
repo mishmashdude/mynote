@@ -18,17 +18,22 @@ struct ToggleItemIntent: LiveActivityIntent {
     @Parameter(title: "Item")
     var content: String?
 
+    /// Whether the item looked ticked when it was tapped.
+    @Parameter(title: "Was Checked")
+    var wasChecked: Bool?
+
     init() {}
-    init(line: Int, content: String? = nil) {
+    init(line: Int, content: String? = nil, wasChecked: Bool? = nil) {
         self.line = line
         self.content = content
+        self.wasChecked = wasChecked
     }
 
     @MainActor
     func perform() async throws -> some IntentResult {
         Log.intents.notice("\(Self.self) running in \(Log.process, privacy: .public)")
         NoteStore.shared.reloadFromDisk()
-        NoteStore.shared.toggleLine(line, expecting: content)
+        NoteStore.shared.toggleLine(line, expecting: content, wasChecked: wasChecked)
         NoteStore.shared.flushWidgetReload()
         await LiveActivityManager.shared.reconcile()
         return .result()

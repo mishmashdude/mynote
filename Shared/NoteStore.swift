@@ -31,11 +31,13 @@ final class NoteStore {
     /// Toggles the checkbox on `index`. When `expected` is given and that line no longer
     /// holds the same item (the note changed since the widget was drawn), the first
     /// checkbox with matching text is toggled instead — or nothing, if there isn't one.
-    func toggleLine(_ index: Int, expecting expected: String? = nil) {
+    func toggleLine(_ index: Int, expecting expected: String? = nil, wasChecked: Bool? = nil) {
         var target = index
         if let expected {
             let lines = NoteParser.parse(document.current.text)
-            let matches: (NoteLine) -> Bool = { $0.isTodo && $0.content == expected }
+            let matches: (NoteLine) -> Bool = {
+                $0.isTodo && $0.content == expected && (wasChecked == nil || $0.isChecked == wasChecked)
+            }
             if !(lines.indices.contains(index) && matches(lines[index])) {
                 guard let found = lines.first(where: matches) else { return }
                 target = found.id

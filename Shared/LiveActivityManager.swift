@@ -77,13 +77,17 @@ final class LiveActivityManager {
     @ObservationIgnored private var pushTask: Task<Void, Never>?
     @ObservationIgnored private var observeTask: Task<Void, Never>?
 
-    private init() {}
+    private init() {
+        // Assigning in init doesn't trigger didSet, so this just restores the saved value.
+        coveredUntil = SettingsSnapshot.load().coveredUntil
+    }
 
     var activitiesEnabled: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
 
     /// Live Activities only exist on iPhone (not on iPad or when the iPhone app runs on a Mac).
     static var deviceSupportsLiveActivities: Bool {
-        UIDevice.current.userInterfaceIdiom == .phone && !ProcessInfo.processInfo.isiOSAppOnMac
+        // `model` still says "iPad" when this iPhone-only app runs in compatibility mode.
+        UIDevice.current.model.hasPrefix("iPhone") && !ProcessInfo.processInfo.isiOSAppOnMac
     }
     private var activities: [NoteActivity] { NoteActivity.activities }
 
@@ -146,7 +150,7 @@ final class LiveActivityManager {
     // MARK: - Operations (only ever called through `serially`)
 
     private func performGoLive() async -> Bool {
-        guard activitiesEnabled else {
+        guard Self.deviceSupportsLiveActivities, activitiesEnabled else {
             status = .unavailable
             return false
         }

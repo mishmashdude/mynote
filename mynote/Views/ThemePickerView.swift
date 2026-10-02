@@ -23,6 +23,20 @@ struct ThemePickerView: View {
         search.isEmpty || t.name.localizedCaseInsensitiveContains(search)
     }
 
+    /// When pairing themes with the system, each slot only offers themes of its kind,
+    /// so system text (titles, search) always matches the theme's brightness.
+    private var groups: [(String, [Theme])] {
+        if settings.matchSystem {
+            return slot == .dark ? [("Dark", ThemeCatalog.darkThemes)] : [("Light", ThemeCatalog.lightThemes)]
+        }
+        return colorScheme == .dark
+            ? [("Dark", ThemeCatalog.darkThemes), ("Light", ThemeCatalog.lightThemes)]
+            : [("Light", ThemeCatalog.lightThemes), ("Dark", ThemeCatalog.darkThemes)]
+    }
+
+    private var themeCount: Int { groups.reduce(0) { $0 + $1.1.count } }
+    private var hasResults: Bool { groups.contains { $0.1.contains(where: matches) } }
+
     var body: some View {
         List {
             Section {
@@ -48,16 +62,6 @@ struct ThemePickerView: View {
             }
             .listRowBackground(theme.cardColor)
 
-            // When pairing themes with the system, each slot only offers themes of its kind,
-            // so system text (titles, search) always matches the theme's brightness.
-            let groups: [(String, [Theme])] = if settings.matchSystem {
-                slot == .dark ? [("Dark", ThemeCatalog.darkThemes)] : [("Light", ThemeCatalog.lightThemes)]
-            } else if colorScheme == .dark {
-                [("Dark", ThemeCatalog.darkThemes), ("Light", ThemeCatalog.lightThemes)]
-            } else {
-                [("Light", ThemeCatalog.lightThemes), ("Dark", ThemeCatalog.darkThemes)]
-            }
-
             ForEach(groups, id: \.0) { title, themes in
                 let visible = themes.filter(matches)
                 if !visible.isEmpty {
@@ -76,7 +80,12 @@ struct ThemePickerView: View {
             }
         }
         .themedList(theme)
-        .searchable(text: $search, prompt: "Search \(ThemeCatalog.all.count) themes")
+        .searchable(text: $search, prompt: "Search \(themeCount) themes")
+        .overlay {
+            if !search.isEmpty && !hasResults {
+                ContentUnavailableView.search(text: search)
+            }
+        }
         .navigationTitle("Theme")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

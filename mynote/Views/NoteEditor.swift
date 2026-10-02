@@ -43,6 +43,8 @@ struct NoteTextView: UIViewRepresentable {
     var controller: EditorController
     var onLimitHit: () -> Void
     var onEndEditing: () -> Void
+    /// Whether the view shows any text at all (including text still being composed).
+    var onVisibleTextChange: (Bool) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
@@ -72,11 +74,13 @@ struct NoteTextView: UIViewRepresentable {
         controller.coordinator = coordinator
         if tv.text != text, tv.markedTextRange == nil {
             tv.text = text
+            coordinator.acceptExternalText(text)
             coordinator.restyle(tv)
         } else if styleChanged {
             coordinator.restyle(tv)
         }
-        if isFocused, !tv.isFirstResponder {
+        let somethingPresented = tv.window?.rootViewController?.presentedViewController != nil
+        if isFocused, !tv.isFirstResponder, !somethingPresented {
             DispatchQueue.main.async {
                 tv.becomeFirstResponder()
                 let end = (tv.text as NSString).length
@@ -128,6 +132,7 @@ struct NoteTextView: UIViewRepresentable {
         }
 
         func textViewDidChange(_ tv: UITextView) {
+            parent.onVisibleTextChange(!tv.text.isEmpty)
             if tv.markedTextRange == nil {
                 let length = NoteParser.countedLength(tv.text)
                 if length > NoteParser.characterLimit, length > NoteParser.countedLength(lastValidText) {
@@ -150,6 +155,13 @@ struct NoteTextView: UIViewRepresentable {
             }
             if parent.isFocused { parent.isFocused = false }
             parent.onEndEditing()
+        }
+
+        /// Text set from outside (Siri, the Lock Screen, archive/restore) becomes the new baseline.
+        func acceptExternalText(_ text: String) {
+            if NoteParser.countedLength(text) <= NoteParser.characterLimit {
+                lastValidText = text
+            }
         }
 
         /// Longest prefix of `string` that fits under the limit (binary search, so huge pastes stay fast).
@@ -280,7 +292,7 @@ struct CharacterRing: View {
     private var remaining: Int { limit - count }
     private var color: Color {
         if remaining <= 0 {
-            return Theme.contrast(theme.error, theme.card) >= 3 ? theme.errorColor : theme.textColor
+            return theme.readableErrorColor
         }
         return remaining <= 20 ? Color(hex: theme.editorCaret) : theme.subColor
     }

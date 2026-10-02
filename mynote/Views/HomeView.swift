@@ -15,6 +15,7 @@ struct HomeView: View {
     @State private var exitStyle = CardExit.archive
 
     @State private var limitTick = 0
+    @State private var editorShowsText = true
     @State private var showLimitBanner = false
     @State private var limitBannerTask: Task<Void, Never>?
     @State private var showDeleteConfirm = false
@@ -187,7 +188,7 @@ struct HomeView: View {
         ZStack(alignment: .bottomTrailing) {
             cardBackground
             ZStack(alignment: .topLeading) {
-                if store.current.text.isEmpty {
+                if store.current.text.isEmpty && !editorShowsText {
                     Text("Start typing...")
                         .font(settings.font.font(size: settings.textSize.appPointSize))
                         .foregroundStyle(theme.subColor)
@@ -202,7 +203,8 @@ struct HomeView: View {
                     size: settings.textSize.appPointSize,
                     controller: editor,
                     onLimitHit: { limitHit() },
-                    onEndEditing: { endEditing() }
+                    onEndEditing: { endEditing() },
+                    onVisibleTextChange: { editorShowsText = $0 }
                 )
             }
             .padding(.horizontal, 22)
@@ -214,17 +216,18 @@ struct HomeView: View {
                 .animation(.linear(duration: 0.4), value: limitTick)
                 .padding(18)
         }
-        .overlay(alignment: .bottom) {
+        .overlay(alignment: .bottomLeading) {
             if showLimitBanner {
-                Text("\(NoteParser.characterLimit)-character limit. mynote is for one clear list.")
+                // Sits in the editor's bottom inset next to the ring, clear of the text.
+                Text("\(NoteParser.characterLimit)-character limit reached")
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(theme.textColor)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
                     .glassEffect(.regular, in: .capsule)
-                    .padding(.bottom, 58)
+                    .padding(16)
+                    .allowsHitTesting(false)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .accessibilityAddTraits(.isStaticText)
             }
         }
     }
@@ -361,6 +364,7 @@ struct HomeView: View {
 
     private func beginEditing() {
         guard !isEditing else { return }
+        editorShowsText = !store.current.text.isEmpty
         withAnimation(.smooth(duration: 0.38)) { isEditing = true }
         editorFocused = true
     }
