@@ -112,9 +112,15 @@ struct NoteLinesView: View {
     }
 
     private func todoText(_ line: NoteLine, checked: Bool) -> some View {
-        Text(line.content)
+        // The strike is baked into the attributed string: widgets and Live Activities
+        // drop the `.strikethrough` view modifier when archiving the view.
+        var attributed = AttributedString(line.content)
+        if checked {
+            attributed.strikethroughStyle = .single
+            attributed.strikethroughColor = UIColor(sub)
+        }
+        return Text(attributed)
             .font(font.font(size: size))
-            .strikethrough(checked, color: sub)
             .foregroundStyle(checked ? sub : text)
             .lineLimit(lineLimit)
             .contentTransition(.opacity)
