@@ -1,0 +1,109 @@
+name: mynote
+options:
+  bundleIdPrefix: com.andi
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+settings:
+  base:
+    DEVELOPMENT_TEAM: Z79V56DCGG
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+targets:
+  mynote:
+    type: application
+    platform: iOS
+    sources:
+      - path: mynote
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.andi.mynote
+        PRODUCT_NAME: mynote
+        CODE_SIGN_ENTITLEMENTS: mynote/mynote.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+    info:
+      path: mynote/Info.plist
+      properties:
+        CFBundleDisplayName: mynote
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.productivity
+        ITSAppUsesNonExemptEncryption: false
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: false
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIBackgroundModes:
+          - fetch
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.andi.mynote.refresh
+        CFBundleURLTypes:
+          - CFBundleURLName: com.andi.mynote
+            CFBundleURLSchemes:
+              - mynote
+        LSApplicationQueriesSchemes:
+          - shortcuts
+    dependencies:
+      - target: mynoteWidgets
+        embed: true
+  mynoteWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: mynoteWidgets
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.andi.mynote.widgets
+        PRODUCT_NAME: mynoteWidgets
+        CODE_SIGN_ENTITLEMENTS: mynoteWidgets/mynoteWidgets.entitlements
+        SKIP_INSTALL: YES
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) WIDGET_EXTENSION
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    info:
+      path: mynoteWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: mynote
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+  mynoteTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: mynoteTests
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.andi.mynote.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) WIDGET_EXTENSION
+schemes:
+  mynote:
+    build:
+      targets:
+        mynote: all
+        mynoteWidgets: all
+    test:
+      targets:
+        - mynoteTests
+    run:
+      config: Debug
+    archive:
+      config: Release
