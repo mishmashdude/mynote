@@ -7,6 +7,8 @@ import Foundation
 enum DebugSeeding {
     /// `-seedSupporter YES|NO` pretends the Supporter unlock is (or isn't) owned.
     private(set) static var supporterOverride: Bool?
+    /// `-seedPrice '$1.99'` stands in for the App Store price when no StoreKit configuration is attached.
+    private(set) static var priceOverride: String?
     private static var applied = false
 
     /// Runs once per launch: SwiftUI can rebuild the root view, which must not re-seed the note.
@@ -24,6 +26,7 @@ enum DebugSeeding {
             supporterOverride = supporter == "YES"
             settings.isSupporter = supporter == "YES"
         }
+        if let price = value("-seedPrice") { priceOverride = price }
         if let seen = value("-seedArchiveNotice") { settings.hasSeenArchiveNotice = seen == "YES" }
         if let editor = value("-seedEditor"), let mode = EditorMode(rawValue: editor) { settings.editorMode = mode }
         if let theme = value("-seedTheme") {

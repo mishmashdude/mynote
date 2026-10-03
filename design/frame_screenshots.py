@@ -37,6 +37,11 @@ def rounded_mask(size, radius):
     return m
 
 
+framed = []
+for folder in (OUT, OUT + "-6.9-jpg", OUT + "-6.5", OUT + "-6.5-jpg"):
+    os.makedirs(folder, exist_ok=True)
+
+
 def compose(raw, out, lines, bg, fg, accent, highlight_line=1, sub=None):
     canvas = gradient(*bg) if isinstance(bg, tuple) else Image.new("RGB", (W, H), bg)
     d = ImageDraw.Draw(canvas)
@@ -73,6 +78,13 @@ def compose(raw, out, lines, bg, fg, accent, highlight_line=1, sub=None):
     canvas.paste(frame, (x, top), rounded_mask((bw, bh), 150))
     canvas.paste(shot, (x + bezel, top + bezel), rounded_mask((dw, dh), 128))
     canvas.save(os.path.join(OUT, out), quality=95)
+    # App Store Connect uploads: JPEGs, one at a time. The 6.5" slot is the one it asks for.
+    name = os.path.splitext(out)[0]
+    canvas.save(os.path.join(OUT + "-6.9-jpg", name + ".jpg"), quality=92, optimize=True)
+    small = canvas.resize((1284, 2778), Image.LANCZOS)
+    small.save(os.path.join(OUT + "-6.5", out))
+    small.save(os.path.join(OUT + "-6.5-jpg", name + ".jpg"), quality=92, optimize=True)
+    framed.append(canvas)
     print("wrote", out)
 
 
@@ -86,9 +98,18 @@ compose("mynote-raw-island.png", "03-dynamic-island.png", ["Tick it off", "from 
         sub="In the Dynamic Island, all day.")
 compose("mynote-raw-themes.png", "04-themes.png", ["50 themes", "devs love"],
         ("#2C2E3B", "#1F202A"), hex2rgb("#F8F8F2"), hex2rgb("#BD93F9"),
-        sub="Dracula, Nord, Gruvbox, Catppuccin…")
-compose("mynote-raw-editor.png", "05-editor.png", ["Type [ ] for", "a checkbox"],
-        ("#FBF6F0", "#F2E9E1"), hex2rgb("#575279"), hex2rgb("#B4637A"), highlight_line=0)
+        sub="Try any free. Supporters get all 50.")
+compose("mynote-raw-editor.png", "05-editor.png", ["Write it", "your way"],
+        ("#FBF6F0", "#F2E9E1"), hex2rgb("#575279"), hex2rgb("#B4637A"),
+        sub="Rich text or Markdown, your pick.")
 compose("mynote-raw-widget.png", "06-widget.png", ["Widgets that", "stay in sync"],
         ("#E3EEF6", "#C9DCEB"), hex2rgb("#22324A"), hex2rgb("#B4637A"),
         sub="Tappable checkboxes on your Home Screen.")
+
+# Contact sheet to review all six at a glance.
+tw, th, gap = 440, 956, 20
+sheet = Image.new("RGB", (3 * tw + 2 * gap, 2 * th + gap), (128, 128, 128))
+for i, img in enumerate(framed):
+    sheet.paste(img.resize((tw, th), Image.LANCZOS), ((i % 3) * (tw + gap), (i // 3) * (th + gap)))
+sheet.save(os.path.join(ROOT, "appstore", "mynote-screenshot-sheet.jpg"), quality=85)
+print("wrote contact sheet")

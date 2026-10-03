@@ -31,7 +31,13 @@ final class SupporterStore {
 
     var isSupporter: Bool { AppSettings.shared.isSupporter }
     /// The local price, once the App Store has said what it is (prices differ by country).
-    var displayPrice: String? { product?.displayPrice }
+    var displayPrice: String? {
+        #if DEBUG
+        // simctl launches have no StoreKit configuration, so screenshot runs pass the price in.
+        if product == nil, let price = DebugSeeding.priceOverride { return price }
+        #endif
+        return product?.displayPrice
+    }
 
     /// Call once at launch: listens for purchases made elsewhere (other devices, Ask to Buy,
     /// refunds) and checks what this Apple Account already owns.
