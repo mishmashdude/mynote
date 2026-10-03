@@ -1,13 +1,14 @@
-mynote keeps one list in front of you: on your Lock Screen, in the Dynamic Island and on your Home Screen. The things that matter today never get buried.
+mynote keeps one note in front of you: on your Lock Screen, in the Dynamic Island and on your Home Screen. The things that matter today never get buried.
 
-WRITE ONE CLEAR LIST
-• A single note card. No folders, no clutter.
-• Type [ ] for a checkbox, - for a bullet and # for a heading, or use the buttons above the keyboard.
-• Lists continue automatically when you press return.
-• A 280-character limit keeps it focused. List markers don't count.
+WRITE IT YOUR WAY
+• One focused note card. No folders, no clutter.
+• Rich Text editing: formatting shows as you type. The bar above the keyboard adds checkboxes, bullets, numbered lists, headings, bold, italic, strikethrough, highlights, code, quotes and dividers.
+• Prefer Markdown? Switch to the Markdown editor in Settings and type **bold**, # headings and - [ ] tasks yourself. Both edit the same note.
+• Lists continue when you press return, and nest when you indent them.
+• A 280-character limit keeps it focused. Formatting symbols don't count.
 
 ALWAYS ON YOUR LOCK SCREEN
-• Tap Go Live and your list appears on the Lock Screen and in the Dynamic Island.
+• Tap Go Live and your note appears on the Lock Screen and in the Dynamic Island, formatting and all.
 • Tick items off right from the Lock Screen, no need to open the app.
 • iOS ends each Live Activity after 8 hours. mynote's Auto-Refresh lines up fresh ones back to back, keeping your list in view for about a day and a half without opening the app.
 • One-tap refresh from Control Center, the Lock Screen controls, a widget or a Shortcuts automation.
@@ -15,15 +16,19 @@ ALWAYS ON YOUR LOCK SCREEN
 
 THEMES DEVS LOVE
 • 50 colour themes inspired by popular code editor and typing themes, from dark classics to soft pastels.
+• Tap the palette to try any theme on for free. Default Light and Default Dark are free; Supporters get all 50. No subscription.
 • Pair a light and a dark theme that switch with your iPhone, or keep one theme all the time.
 • Your theme carries through to the widget and the Live Activity.
 • 10 fonts including SF Mono, Menlo and Courier.
 
+SUPPORT AN INDIE APP
+• mynote is made by one person. Become a mynote Supporter with a one-time purchase: it unlocks all 50 themes for good and helps keep mynote growing.
+
 BUILT FOR iOS 26
 • A Liquid Glass design that feels at home on iPhone.
-• Home Screen and Lock Screen widgets with tappable checkboxes.
+• Home Screen and Lock Screen widgets: tick a box right on the widget, or tap anywhere else to open mynote.
 • Siri and Shortcuts: add items, clear completed items, keep your list on the Lock Screen.
-• Archive notes and bring them back any time, with search.
+• Deleted notes wait in the Archive until you delete them for good, with search and one-tap restore.
 
 PRIVATE BY DESIGN
 No accounts, no tracking, no analytics. Your note stays on your iPhone.

@@ -13,7 +13,7 @@ struct KeepAliveGuideView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("iOS removes any Live Activity after 8 hours. mynote uses every tool iOS offers to keep your list in view — most of them work without you lifting a finger.")
+                Text("iOS removes any Live Activity after 8 hours. mynote uses every tool iOS offers to keep your list in view, and most of them work without you lifting a finger.")
                     .font(.subheadline)
                     .foregroundStyle(theme.subColor)
                     .padding(.horizontal, 4)
@@ -69,7 +69,7 @@ struct KeepAliveGuideView: View {
                 }
 
                 GuideCard(number: 5, icon: "square.text.square", title: "Widgets") {
-                    Text("The medium and large Home Screen widgets show a Go Live button whenever your list isn't on the Lock Screen — one tap puts it back.")
+                    Text("The medium and large Home Screen widgets show a Go Live button whenever your list isn't on the Lock Screen. One tap puts it back.")
                 }
             }
             .padding(16)

@@ -1,10 +1,12 @@
-mynote is a single-note checklist app. No account or sign-in is needed.
+mynote is a single-note app. No account or sign-in is needed.
 
-How to test the main feature:
+How to test the main features:
 1. Open the app and tap Get Started (a sample checklist is pre-filled).
-2. Tap "Go Live" at the bottom of the screen. Allow Live Activities (and notifications if you like).
-3. Lock the device: the checklist appears on the Lock Screen as a Live Activity (and in the Dynamic Island). Tap a checkbox there to tick it off without opening the app.
-4. ⋯ menu > Settings > Theme to try the 50 colour themes. Settings > Live Activity shows the appearance options and the Auto-Refresh setting.
+2. Tap the note card to edit it. The bar above the keyboard adds checkboxes, lists, headings, bold, italic and more. Settings > Editor switches to a plain Markdown editor; both edit the same note.
+3. Tap "Go Live" at the bottom of the screen. Allow Live Activities (and notifications if you like). Lock the device: the note appears on the Lock Screen as a Live Activity and in the Dynamic Island. Tap a checkbox there to tick it off without opening the app.
+4. The trash button moves the note to the Archive (box button, top right). The first time, an alert explains this; after that an Undo button appears for a few seconds.
+
+In-app purchase (new in 1.1): "mynote Supporter" (com.andi.mynote.supporter), a one-time non-consumable. Today it unlocks all 50 colour themes (Default Light and Default Dark are free). Tap the palette button (bottom left) to open Themes: tapping any other theme previews it across the app for free, and "Unlock" or "Become a Supporter" buys it. Restore Purchase is at the bottom of the Themes sheet and in Settings > Support mynote. Nothing else in the app is locked.
 
 About the Live Activity: it only starts when the user taps Go Live and only ever shows the user's own note. iOS ends each Live Activity after 8 hours. When Auto-Refresh is on (user-controllable in Settings > Live Activity), mynote uses the iOS 26 scheduled-start API (Activity.request with a start date) to line up the next activity just before the previous one ends, so the list the user pinned stays visible, which is the core purpose of the app. Tapping "Live" again (or the "Hide mynote from Lock Screen" shortcut) removes it immediately. The optional expiry reminder is a local notification and can be turned off.
 

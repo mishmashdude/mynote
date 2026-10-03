@@ -10,7 +10,7 @@ settings:
     DEVELOPMENT_TEAM: Z79V56DCGG
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.0"
+    MARKETING_VERSION: "1.1"
     CURRENT_PROJECT_VERSION: "1"
     TARGETED_DEVICE_FAMILY: "1"
     IPHONEOS_DEPLOYMENT_TARGET: "26.0"
@@ -93,6 +93,7 @@ targets:
     sources:
       - path: mynoteTests
       - path: Shared
+      - path: mynote/Editor/RichTextCodec.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andi.mynote.tests
@@ -110,5 +111,6 @@ schemes:
         - mynoteTests
     run:
       config: Debug
+      storeKitConfiguration: StoreKit/mynote.storekit
     archive:
       config: Release

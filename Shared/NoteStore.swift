@@ -28,19 +28,24 @@ final class NoteStore {
         commit()
     }
 
-    /// Toggles the checkbox on `index`. When `expected` is given and that line no longer
-    /// holds the same item (the note changed since the widget was drawn), the first
-    /// checkbox with matching text is toggled instead — or nothing, if there isn't one.
+    /// Toggles the checkbox on `index`. A widget or Live Activity may have been drawn
+    /// before the note last changed, so `expected` (the item's text then) and `wasChecked`
+    /// guard against ticking the wrong thing:
+    /// - the line at `index` is the same item: toggle it, unless it has already been flipped;
+    /// - the note moved on: toggle the closest checkbox with the same words, if any.
+    /// Words are compared without Markdown, which the Rich Text editor may have respelled.
     func toggleLine(_ index: Int, expecting expected: String? = nil, wasChecked: Bool? = nil) {
         var target = index
         if let expected {
             let lines = NoteParser.parse(document.current.text)
-            let matches: (NoteLine) -> Bool = {
-                $0.isTodo && $0.content == expected && (wasChecked == nil || $0.isChecked == wasChecked)
-            }
-            if !(lines.indices.contains(index) && matches(lines[index])) {
-                guard let found = lines.first(where: matches) else { return }
-                target = found.id
+            let words = InlineMarkdown.plain(expected)
+            let sameItem: (NoteLine) -> Bool = { $0.isTodo && $0.plainContent == words }
+            if lines.indices.contains(index), sameItem(lines[index]) {
+                if let wasChecked, lines[index].isChecked != wasChecked { return }
+            } else {
+                let candidates = lines.filter { sameItem($0) && (wasChecked == nil || $0.isChecked == wasChecked) }
+                guard let nearest = candidates.min(by: { abs($0.id - index) < abs($1.id - index) }) else { return }
+                target = nearest.id
             }
         }
         let newText = NoteParser.toggle(document.current.text, line: target)
@@ -63,7 +68,7 @@ final class NoteStore {
     func appendItem(_ item: String, asTodo: Bool = true) -> Bool {
         let trimmed = item.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-        let line = (asTodo ? "[ ] " : "") + trimmed
+        let line = (asTodo ? "- [ ] " : "") + trimmed
         var text = document.current.text
         while text.hasSuffix("\n") { text.removeLast() }
         let newText = text.isEmpty ? line : text + "\n" + line
@@ -74,18 +79,17 @@ final class NoteStore {
 
     // MARK: Archive
 
-    func archiveCurrent() {
-        guard !document.current.isEmpty else { return }
+    /// Moves the note on screen into the Archive and starts a fresh one.
+    /// Returns the archived note's id so the move can be undone.
+    @discardableResult
+    func archiveCurrent() -> UUID? {
+        guard !document.current.isEmpty else { return nil }
         var note = document.current
         note.archivedAt = .now
         document.archived.insert(note, at: 0)
         document.current = Note()
         commit(immediate: true)
-    }
-
-    func deleteCurrent() {
-        document.current = Note()
-        commit(immediate: true)
+        return note.id
     }
 
     /// Brings an archived note back. The note currently on screen (if any) is archived in its place.

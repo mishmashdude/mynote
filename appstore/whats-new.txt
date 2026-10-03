@@ -1,0 +1,5 @@
+• Write it your way: the new Rich Text editor shows formatting as you type, with headings, numbered lists, quotes, dividers, bold, italic, highlights and more. Prefer Markdown? Switch editors in Settings.
+• Your formatting looks just as good on the widget, the Lock Screen and the Dynamic Island.
+• Widgets: tick a box to check it off, tap anywhere else to open mynote.
+• Themes now live on the home screen. Tap the palette to try any theme on for free. Become a mynote Supporter with a one-time purchase to unlock all 50 and help keep mynote going. Already picked a theme? It's still yours.
+• Delete now sends a note to the Archive, with Undo, so nothing is lost by accident.

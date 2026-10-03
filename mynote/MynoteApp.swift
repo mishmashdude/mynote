@@ -55,18 +55,20 @@ struct RootView: View {
     }
 
     var body: some View {
-        let theme = settings.theme(for: colorScheme)
+        let theme = settings.displayTheme(for: colorScheme)
         HomeView()
             .environment(\.theme, theme)
             .tint(theme.mainColor)
             .onAppear { applyInterfaceStyle() }
             .onChange(of: settings.themeChoice) { applyInterfaceStyle() }
+            .onChange(of: settings.previewThemeID) { applyInterfaceStyle() }
             .onChange(of: scenePhase, initial: true) { _, phase in
                 guard phase == .active else { return }
                 NoteStore.shared.reloadFromDisk()
                 settings.reload()
                 Task { await LiveActivityManager.shared.reconcile() }
             }
+            .task { SupporterStore.shared.start() }
             .fullScreenCover(isPresented: $showOnboarding) {
                 OnboardingView {
                     settings.hasOnboarded = true
@@ -79,7 +81,7 @@ struct RootView: View {
     /// Forces light/dark on every window (including sheets) so the chosen theme's
     /// system controls and glass match. `preferredColorScheme(nil)` can't reliably undo an override.
     private func applyInterfaceStyle() {
-        let style: UIUserInterfaceStyle = switch settings.themeChoice.forcedScheme {
+        let style: UIUserInterfaceStyle = switch settings.displayForcedScheme {
         case .dark: .dark
         case .light: .light
         default: .unspecified

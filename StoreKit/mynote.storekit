@@ -1,0 +1,49 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "4F1D2A7C",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : true,
+      "internalID" : "7B3E9C21",
+      "localizations" : [
+        {
+          "description" : "Unlock every mynote theme, for good.",
+          "displayName" : "mynote Supporter",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.andi.mynote.supporter",
+      "referenceName" : "Supporter (all themes)",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_developerTeamID" : "Z79V56DCGG",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

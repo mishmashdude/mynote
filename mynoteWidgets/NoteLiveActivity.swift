@@ -109,19 +109,28 @@ struct LockScreenLiveView: View {
     }
 
     /// Apple Watch Smart Stack / CarPlay.
+    @ViewBuilder
     private func smallView(palette: LivePalette) -> some View {
         let lines = NoteParser.visibleLines(context.state.text)
-        return FittedNoteLines(
-            lines: lines,
-            maxLines: 3,
-            font: context.state.font,
-            size: 13,
-            text: palette.text,
-            sub: palette.sub,
-            accent: palette.accent,
-            spacing: 2,
-            allowsColumns: false
-        )
+        Group {
+            if lines.isEmpty {
+                Text("Your list is empty.")
+                    .font(context.state.font.font(size: 13))
+                    .foregroundStyle(palette.sub)
+            } else {
+                FittedNoteLines(
+                    lines: lines,
+                    maxLines: 3,
+                    font: context.state.font,
+                    size: 13,
+                    text: palette.text,
+                    sub: palette.sub,
+                    accent: palette.accent,
+                    spacing: 2,
+                    allowsColumns: false
+                )
+            }
+        }
         .padding(10)
     }
 }

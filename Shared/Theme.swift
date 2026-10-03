@@ -91,6 +91,25 @@ extension Color {
     }
 }
 
+extension Color {
+    /// The tint behind ==highlighted== words: the accent itself, or a highlighter
+    /// yellow when the accent is black, white or grey (a grey wash reads as a mistake).
+    var highlighterTint: Color {
+        let c = resolve(in: EnvironmentValues())
+        let spread = max(c.red, c.green, c.blue) - min(c.red, c.green, c.blue)
+        return spread < 0.12 ? Color(hex: 0xFFD60A).opacity(0.45) : opacity(0.3)
+    }
+}
+
+extension UIColor {
+    var highlighterTint: UIColor {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        let spread = max(r, g, b) - min(r, g, b)
+        return spread < 0.12 ? UIColor(hex: 0xFFD60A, alpha: 0.45) : withAlphaComponent(0.3)
+    }
+}
+
 extension UIColor {
     convenience init(hex: UInt32, alpha: CGFloat = 1) {
         self.init(
@@ -105,6 +124,9 @@ extension UIColor {
 enum ThemeCatalog {
     static let defaultLightID = "default-light"
     static let defaultDarkID = "default-dark"
+
+    /// Themes everyone gets. The rest come with the one-off Supporter unlock.
+    static let freeIDs: Set<String> = [defaultLightID, defaultDarkID]
 
     static let all: [Theme] = [
         // The classic mynote look (matches iOS light / dark).

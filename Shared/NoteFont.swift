@@ -22,21 +22,25 @@ enum NoteFont: String, CaseIterable, Identifiable, Codable, Sendable {
         }
     }
 
-    private var postScriptNames: (regular: String, bold: String)? {
+    /// PostScript names of the bundled faces. A missing italic is drawn slanted instead.
+    private var faces: (regular: String, bold: String, italic: String?, boldItalic: String?)? {
         switch self {
-        case .menlo: ("Menlo-Regular", "Menlo-Bold")
-        case .courier: ("CourierNewPSMT", "CourierNewPS-BoldMT")
-        case .typewriter: ("AmericanTypewriter", "AmericanTypewriter-Semibold")
-        case .avenir: ("AvenirNext-Regular", "AvenirNext-DemiBold")
-        case .georgia: ("Georgia", "Georgia-Bold")
-        case .futura: ("Futura-Medium", "Futura-Bold")
+        case .menlo: ("Menlo-Regular", "Menlo-Bold", "Menlo-Italic", "Menlo-BoldItalic")
+        case .courier: ("CourierNewPSMT", "CourierNewPS-BoldMT", "CourierNewPS-ItalicMT", "CourierNewPS-BoldItalicMT")
+        case .typewriter: ("AmericanTypewriter", "AmericanTypewriter-Semibold", nil, nil)
+        case .avenir: ("AvenirNext-Regular", "AvenirNext-DemiBold", "AvenirNext-Italic", "AvenirNext-DemiBoldItalic")
+        case .georgia: ("Georgia", "Georgia-Bold", "Georgia-Italic", "Georgia-BoldItalic")
+        case .futura: ("Futura-Medium", "Futura-Bold", "Futura-MediumItalic", nil)
         default: nil
         }
     }
 
-    func font(size: CGFloat, bold: Bool = false) -> Font {
-        if let names = postScriptNames {
-            return .custom(bold ? names.bold : names.regular, fixedSize: size)
+    func font(size: CGFloat, bold: Bool = false, italic: Bool = false) -> Font {
+        if italic {
+            return Font(uiFont(size: size, bold: bold, italic: true) as CTFont)
+        }
+        if let faces {
+            return .custom(bold ? faces.bold : faces.regular, fixedSize: size)
         }
         let weight: Font.Weight = bold ? .semibold : .regular
         switch self {
@@ -47,22 +51,52 @@ enum NoteFont: String, CaseIterable, Identifiable, Codable, Sendable {
         }
     }
 
-    func uiFont(size: CGFloat, bold: Bool = false) -> UIFont {
-        if let names = postScriptNames, let f = UIFont(name: bold ? names.bold : names.regular, size: size) {
-            return f
+    func uiFont(size: CGFloat, bold: Bool = false, italic: Bool = false) -> UIFont {
+        if let faces {
+            if italic, let name = bold ? faces.boldItalic : faces.italic, let face = UIFont(name: name, size: size) {
+                return face
+            }
+            if let face = UIFont(name: bold ? faces.bold : faces.regular, size: size) {
+                return italic ? Self.slanted(face) : face
+            }
         }
         let weight: UIFont.Weight = bold ? .semibold : .regular
-        let base = UIFont.systemFont(ofSize: size, weight: weight)
+        var font = UIFont.systemFont(ofSize: size, weight: weight)
         let design: UIFontDescriptor.SystemDesign? = switch self {
         case .rounded: .rounded
         case .serif: .serif
         case .mono: .monospaced
         default: nil
         }
-        if let design, let descriptor = base.fontDescriptor.withDesign(design) {
-            return UIFont(descriptor: descriptor, size: size)
+        if let design, let descriptor = font.fontDescriptor.withDesign(design) {
+            font = UIFont(descriptor: descriptor, size: size)
         }
-        return base
+        return italic ? Self.italicized(font) : font
+    }
+
+    /// Monospaced font for `code`, a touch smaller so it sits well next to the note text.
+    static func codeUIFont(size: CGFloat, bold: Bool = false, italic: Bool = false) -> UIFont {
+        let font = UIFont.monospacedSystemFont(ofSize: size * 0.9, weight: bold ? .semibold : .regular)
+        return italic ? italicized(font) : font
+    }
+
+    static func codeFont(size: CGFloat, bold: Bool = false, italic: Bool = false) -> Font {
+        Font(codeUIFont(size: size, bold: bold, italic: italic) as CTFont)
+    }
+
+    private static func italicized(_ font: UIFont) -> UIFont {
+        let traits = font.fontDescriptor.symbolicTraits.union(.traitItalic)
+        if let descriptor = font.fontDescriptor.withSymbolicTraits(traits) {
+            let italic = UIFont(descriptor: descriptor, size: font.pointSize)
+            if italic.fontDescriptor.symbolicTraits.contains(.traitItalic) { return italic }
+        }
+        return slanted(font)
+    }
+
+    /// A slanted copy for faces that have no italic of their own.
+    private static func slanted(_ font: UIFont) -> UIFont {
+        let matrix = CGAffineTransform(a: 1, b: 0, c: 0.2, d: 1, tx: 0, ty: 0)
+        return UIFont(descriptor: font.fontDescriptor.addingAttributes([.matrix: matrix]), size: font.pointSize)
     }
 }
 
@@ -84,6 +118,21 @@ enum TextSize: Int, CaseIterable, Identifiable, Codable, Sendable {
     var widgetPointSize: CGFloat { [12, 13.5, 15][rawValue] }
 }
 
+/// How much bigger headings are than the note text. Widgets and the Lock Screen
+/// use a flatter scale so headings don't eat the little room there is.
+enum HeadingScale {
+    static func factor(level: Int, compact: Bool) -> CGFloat {
+        switch (level, compact) {
+        case (1, false): 1.32
+        case (2, false): 1.16
+        case (_, false): 1.04
+        case (1, true): 1.14
+        case (2, true): 1.07
+        default: 1
+        }
+    }
+}
+
 /// How the Live Activity is painted on the Lock Screen.
 enum LiveStyle: String, CaseIterable, Identifiable, Codable, Sendable {
     case theme, glass, clear
@@ -101,8 +150,22 @@ enum LiveStyle: String, CaseIterable, Identifiable, Codable, Sendable {
     var detail: String {
         switch self {
         case .theme: "Uses your theme's colours."
-        case .glass: "A dark translucent card, like the system style."
-        case .clear: "No background — just your list over the wallpaper."
+        case .glass: "A dark see-through card, like the system style."
+        case .clear: "No background, just your list over the wallpaper."
+        }
+    }
+}
+
+/// Rich Text shows formatting as you type; Markdown shows the symbols.
+enum EditorMode: String, CaseIterable, Identifiable, Codable, Sendable {
+    case rich, markdown
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .rich: "Rich Text"
+        case .markdown: "Markdown"
         }
     }
 }

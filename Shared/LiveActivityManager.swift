@@ -282,7 +282,7 @@ final class LiveActivityManager {
         let s = SettingsSnapshot.load()
         let ids = s.themeChoice.liveIDs
         return NoteActivityAttributes.ContentState(
-            text: NoteStore.shared.current.text,
+            text: NoteParser.compactForLiveActivity(NoteStore.shared.current.text),
             lightThemeID: ids.light,
             darkThemeID: ids.dark,
             font: s.font,

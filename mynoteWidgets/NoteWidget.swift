@@ -13,7 +13,7 @@ struct NoteEntry: TimelineEntry {
 
 struct NoteProvider: TimelineProvider {
     func placeholder(in context: Context) -> NoteEntry {
-        NoteEntry(date: .now, text: "[x] Ship the update\n[ ] Reply to Sam\n[ ] Gym at 6\n- Pick up coffee beans", settings: .load())
+        NoteEntry(date: .now, text: "# Today\n- [x] Ship the update\n- [ ] Reply to **Sam**\n- [ ] Gym at 6\n- Pick up coffee beans", settings: .load())
     }
 
     func getSnapshot(in context: Context, completion: @escaping (NoteEntry) -> Void) {
@@ -42,7 +42,7 @@ struct NoteWidget: Widget {
             NoteWidgetView(entry: entry)
         }
         .configurationDisplayName("mynote")
-        .description("Your note, with tappable checkboxes.")
+        .description("Your note. Tick boxes right on the widget, tap anywhere else to open mynote.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .accessoryRectangular, .accessoryInline, .accessoryCircular])
     }
 }
@@ -63,7 +63,8 @@ struct NoteWidgetView: View {
             default: home(theme: theme)
             }
         }
-        .widgetURL(URL(string: "mynote://edit"))
+        // Tapping anything but a checkbox opens the app. An empty note opens straight into the editor.
+        .widgetURL(URL(string: NoteParser.visibleLines(entry.text).isEmpty ? "mynote://edit" : "mynote://open"))
     }
 
     // MARK: Home screen
@@ -121,7 +122,7 @@ struct NoteWidgetView: View {
     // MARK: Lock screen accessories
 
     private var rectangular: some View {
-        let lines = Array(NoteParser.visibleLines(entry.text).prefix(3))
+        let lines = Array(NoteParser.visibleLines(entry.text).filter { $0.kind != .blank && $0.kind != .divider }.prefix(3))
         return VStack(alignment: .leading, spacing: 1) {
             if lines.isEmpty {
                 Text("mynote").font(.headline)
@@ -135,12 +136,16 @@ struct NoteWidgetView: View {
                                 .font(.system(size: 11, weight: .semibold))
                         case .bullet:
                             Text("•")
+                        case .numbered:
+                            Text("\(line.ordinal ?? 1).").monospacedDigit()
+                        case .quote:
+                            Capsule().frame(width: 2, height: 11)
                         default:
                             EmptyView()
                         }
-                        Text(line.content)
-                            .font(.system(size: 13, weight: line.kind == .heading ? .bold : .regular))
-                            .strikethrough(line.isChecked)
+                        Text(InlineMarkdown.attributed(line.content, font: .system, size: 13,
+                                                       color: line.isChecked ? .secondary : .primary, accent: .primary,
+                                                       bold: line.isHeading, struck: line.isChecked, onWidget: true))
                             .foregroundStyle(line.isChecked ? .secondary : .primary)
                             .lineLimit(1)
                     }
@@ -153,12 +158,14 @@ struct NoteWidgetView: View {
 
     private var inline: some View {
         let progress = NoteParser.progress(entry.text)
-        let first = NoteParser.visibleLines(entry.text).first { !$0.isChecked && $0.kind != .blank }
+        let lines = NoteParser.visibleLines(entry.text)
+        let nextTask = lines.first { $0.isTodo && !$0.isChecked }
+        let firstLine = lines.first { $0.kind != .blank && $0.kind != .divider }
         return Group {
             if progress.total > 0 {
-                Label("\(progress.total - progress.done) left · \(first?.content ?? "All done")", systemImage: "checklist")
+                Label("\(progress.total - progress.done) left · \(nextTask?.plainContent ?? "All done")", systemImage: "checklist")
             } else {
-                Label(first?.content ?? "mynote", systemImage: "note.text")
+                Label(firstLine?.plainContent ?? "mynote", systemImage: "note.text")
             }
         }
         .containerBackground(for: .widget) { Color.clear }
@@ -188,5 +195,5 @@ struct NoteWidgetView: View {
 #Preview(as: .systemMedium) {
     NoteWidget()
 } timeline: {
-    NoteEntry(date: .now, text: "# Today\n[x] Ship the update\n[ ] Reply to Sam\n- Coffee beans", settings: .load())
+    NoteEntry(date: .now, text: "# Today\n- [x] Ship the update\n- [ ] Reply to **Sam**\n- Coffee ==beans==", settings: .load())
 }

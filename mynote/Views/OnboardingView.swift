@@ -12,6 +12,10 @@ struct OnboardingView: View {
 
     private let featuredThemes = ["default", "serika-dark", "dracula", "nord", "gruvbox-dark", "catppuccin-mocha", "tokyo-night", "rose-pine-dawn", "solarized-light", "matrix"]
 
+    private var tryingOn: Theme? {
+        settings.previewThemeID.map(ThemeCatalog.theme).flatMap { settings.canUse($0) ? nil : $0 }
+    }
+
     var body: some View {
         ZStack {
             theme.bgColor.ignoresSafeArea()
@@ -33,16 +37,20 @@ struct OnboardingView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 18) {
-                        feature("checklist", "One focused list", "Bullets and checkboxes in a single note. No folders, no clutter.")
-                        feature("lock.iphone", "Always on your Lock Screen", "Go Live and mynote keeps your list on the Lock Screen and Dynamic Island — refreshing it automatically.")
-                        feature("paintpalette", "Themes devs love", "Dracula, Nord, Gruvbox, Catppuccin, Serika and \(ThemeCatalog.all.count - 10) more.")
+                        feature("checklist", "One focused note", "Checkboxes, lists, headings and bold, in rich text or Markdown.")
+                        feature("lock.iphone", "Always on your Lock Screen", "Go Live and mynote keeps your list on the Lock Screen and Dynamic Island, refreshing it on its own.")
+                        feature("paintpalette", "Themes devs love", "Dracula, Nord, Gruvbox, Catppuccin and \(ThemeCatalog.all.count - 4) more. Try any of them for free.")
                     }
                     .padding(.horizontal, 28)
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Pick a vibe")
+                        // While a locked theme is tried on, the label says so (in place, so nothing moves).
+                        Text(tryingOn.map { "Trying on \($0.name). Supporters keep it, any time." } ?? "Try a vibe")
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(theme.subColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .contentTransition(.opacity)
                             .padding(.horizontal, 28)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 10) {
@@ -61,6 +69,8 @@ struct OnboardingView: View {
                 Spacer()
                 Button {
                     seedNoteIfNeeded()
+                    // A theme that was only tried on isn't kept.
+                    settings.previewThemeID = nil
                     onFinish()
                 } label: {
                     Text("Get Started")
@@ -83,7 +93,7 @@ struct OnboardingView: View {
 
     private var sampleCard: some View {
         NoteLinesView(
-            lines: NoteParser.parse("# today\n[x] Write one clear list\n[ ] Tick things off\n[ ] Keep it on my Lock Screen"),
+            lines: NoteParser.visibleLines("# today\n- [x] Write one **clear** list\n- [ ] Tick things off\n- [ ] Keep it on my Lock Screen"),
             font: settings.font,
             size: 17,
             text: theme.textColor,
@@ -115,15 +125,21 @@ struct OnboardingView: View {
     private func themeChip(_ id: String) -> some View {
         let isDefault = id == "default"
         let chipTheme = isDefault ? ThemeCatalog.theme(ThemeCatalog.defaultDarkID) : ThemeCatalog.theme(id)
-        let selected = isDefault ? settings.matchSystem && settings.lightThemeID == ThemeCatalog.defaultLightID
-            : !settings.matchSystem && settings.themeID == id
+        let locked = !isDefault && !settings.canUse(chipTheme)
+        let selected = isDefault
+            ? settings.previewThemeID == nil && settings.matchSystem && settings.lightThemeID == ThemeCatalog.defaultLightID
+            : settings.previewThemeID == id || (settings.previewThemeID == nil && !settings.matchSystem && settings.themeID == id)
         return Button {
             withAnimation(.smooth(duration: 0.35)) {
                 if isDefault {
+                    settings.previewThemeID = nil
                     settings.lightThemeID = ThemeCatalog.defaultLightID
                     settings.darkThemeID = ThemeCatalog.defaultDarkID
                     settings.matchSystem = true
+                } else if locked {
+                    settings.previewThemeID = id
                 } else {
+                    settings.previewThemeID = nil
                     settings.themeID = id
                     settings.matchSystem = false
                 }
@@ -135,6 +151,11 @@ struct OnboardingView: View {
                 Text(isDefault ? "default" : chipTheme.name.lowercased())
                     .font(.system(size: 14, weight: .medium, design: .monospaced))
                     .foregroundStyle(chipTheme.textColor)
+                if locked {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(chipTheme.subColor)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -142,10 +163,13 @@ struct OnboardingView: View {
             .overlay(Capsule().strokeBorder(selected ? theme.mainColor : chipTheme.subColor.opacity(0.3), lineWidth: selected ? 2.5 : 1))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(isDefault ? "Default" : chipTheme.name)
+        .accessibilityValue(locked ? "Locked, tap to try it on" : "")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func seedNoteIfNeeded() {
         guard NoteStore.shared.current.isEmpty else { return }
-        NoteStore.shared.setText("[ ] Tap a box to tick it off\n[ ] Pick a theme in Settings\n[ ] Tap Go Live to pin this list")
+        NoteStore.shared.setText("- [ ] Tap a box to tick it off\n- [ ] Try a theme with the palette button\n- [ ] Tap Go Live to pin this list")
     }
 }

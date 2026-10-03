@@ -7,18 +7,12 @@ struct SettingsView: View {
 
     private var settings = AppSettings.shared
 
-    private var themeSummary: String {
-        settings.matchSystem
-            ? "\(ThemeCatalog.theme(settings.lightThemeID).name) / \(ThemeCatalog.theme(settings.darkThemeID).name)"
-            : ThemeCatalog.theme(settings.themeID).name
-    }
-
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    NavigationLink { ThemePickerView() } label: {
-                        SettingsRow(icon: "paintpalette", title: "Theme", value: themeSummary)
+                    NavigationLink { EditorSettingsView() } label: {
+                        SettingsRow(icon: "character.cursor.ibeam", title: "Editor", value: settings.editorMode.name)
                     }
                     NavigationLink { NoteTextSettingsView() } label: {
                         SettingsRow(icon: "textformat", title: "Note Text", value: settings.font.name)
@@ -38,6 +32,14 @@ struct SettingsView: View {
                     }
                 }
                 .listRowBackground(theme.cardColor)
+
+                Section {
+                    SupporterCard(style: .full)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                } header: {
+                    Text("Support mynote").foregroundStyle(theme.subColor)
+                }
 
                 Section {
                     Button { openURL(AppInfo.feedbackURL) } label: {
@@ -132,7 +134,7 @@ struct NoteTextSettingsView: View {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
                     NoteLinesView(
-                        lines: NoteParser.parse("The quick brown fox jumps over the lazy dog\n[x] Pick a theme\n[ ] Choose a font\n- Make it yours"),
+                        lines: NoteParser.visibleLines("## Make it yours\nThe *quick* brown fox jumps over the **lazy** dog\n- [x] Pick a theme\n- [ ] Choose a font\n- Try ==highlights=="),
                         font: settings.font,
                         size: settings.textSize.appPointSize,
                         text: theme.textColor,
@@ -209,7 +211,7 @@ struct WidgetInfoView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Home Screen Widget")
                             .font(.headline)
-                        Text("Touch and hold an empty area of your Home Screen until the apps jiggle, tap Edit → Add Widget, search for mynote, pick a size and tap Add Widget. Checkboxes on the widget can be ticked right from the Home Screen.")
+                        Text("Touch and hold an empty area of your Home Screen until the apps jiggle, tap Edit → Add Widget, search for mynote, pick a size and tap Add Widget. Tap a checkbox to tick it right there, or tap anywhere else on the widget to open mynote.")
                             .font(.subheadline)
                             .foregroundStyle(theme.subColor)
                     }
@@ -232,7 +234,7 @@ struct WidgetInfoView: View {
 
     private func widgetPreview(width: CGFloat, height: CGFloat, maxLines: Int, allowsColumns: Bool = true) -> some View {
         let sample = NoteStore.shared.current.isEmpty
-            ? "[x] Ship the update\n[ ] Reply to Sam\n[ ] Gym at 6\n- Coffee beans"
+            ? "# Today\n- [x] Ship the update\n- [ ] Reply to **Sam**\n- [ ] Gym at 6\n- Coffee beans"
             : NoteStore.shared.current.text
         let widgetTheme = settings.theme(for: theme.colorScheme)
         return WidgetNoteContent(text: sample, theme: widgetTheme, font: settings.font,
@@ -287,7 +289,7 @@ struct AboutView: View {
             .listRowBackground(theme.cardColor)
 
             Section {
-                Text("Theme palettes are adapted from much-loved open-source editor and typing themes — Dracula, Nord, Gruvbox, Catppuccin, Solarized, Rosé Pine, Tokyo Night, Everforest, Kanagawa, Ayu, Night Owl, Monokai, One Dark and the monkeytype community themes. Thank you to their creators.")
+                Text("Theme palettes are adapted from much-loved open-source editor and typing themes: Dracula, Nord, Gruvbox, Catppuccin, Solarized, Rosé Pine, Tokyo Night, Everforest, Kanagawa, Ayu, Night Owl, Monokai, One Dark and the monkeytype community themes. Thank you to their creators.")
                     .font(.footnote)
                     .foregroundStyle(theme.subColor)
             } header: {
@@ -299,4 +301,135 @@ struct AboutView: View {
         .navigationTitle("About")
         .navigationBarTitleDisplayMode(.inline)
     }
+}
+
+// MARK: - Editor
+
+struct EditorSettingsView: View {
+    @Environment(\.theme) private var theme
+    @Bindable private var settings = AppSettings.shared
+
+    private let sample = "## Groceries\n- [x] **Oat** milk\n- [ ] Coffee *beans*\n- Bread"
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(EditorMode.allCases) { mode in
+                    Button {
+                        withAnimation(.smooth) { settings.editorMode = mode }
+                    } label: {
+                        modeRow(mode)
+                    }
+                    .buttonStyle(.plain)
+                }
+            } footer: {
+                Text("Both edit the same note, so you can switch any time. Your widget and Lock Screen look the same either way.")
+                    .foregroundStyle(theme.subColor)
+            }
+            .listRowBackground(theme.cardColor)
+
+            if settings.editorMode == .markdown {
+                Section {
+                    ForEach(Self.cheatSheet, id: \.0) { syntax, example in
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Text(syntax)
+                                .font(.system(size: 14, design: .monospaced))
+                                .foregroundStyle(theme.subColor)
+                                .frame(width: 128, alignment: .leading)
+                            NoteLinesView(lines: NoteParser.visibleLines(example), font: settings.font, size: 15,
+                                          text: theme.textColor, sub: theme.subColor, accent: theme.mainColor, lineLimit: 1)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                } header: {
+                    Text("Markdown cheat sheet").foregroundStyle(theme.subColor)
+                }
+                .listRowBackground(theme.cardColor)
+            }
+        }
+        .themedList(theme)
+        .navigationTitle("Editor")
+        .navigationBarTitleDisplayMode(.inline)
+        .sensoryFeedback(.selection, trigger: settings.editorMode)
+    }
+
+    private func modeRow(_ mode: EditorMode) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(mode.name)
+                        .font(.headline)
+                        .foregroundStyle(theme.textColor)
+                    Spacer()
+                    if settings.editorMode == mode {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(theme.mainColor)
+                    }
+                }
+                Text(verbatim: mode == .rich
+                     ? "Formatting shows as you type. Use the bar above the keyboard for lists, headings and bold."
+                     : "Type Markdown and see the symbols, like **bold** and - [ ] tasks. The bar above the keyboard still helps.")
+                    .font(.subheadline)
+                    .foregroundStyle(theme.subColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                preview(mode)
+            }
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(settings.editorMode == mode ? [.isButton, .isSelected] : .isButton)
+    }
+
+    @ViewBuilder
+    private func preview(_ mode: EditorMode) -> some View {
+        Group {
+            if mode == .rich {
+                NoteLinesView(lines: NoteParser.visibleLines(sample), font: settings.font, size: 14,
+                              text: theme.textColor, sub: theme.subColor, accent: theme.mainColor, spacing: 4)
+            } else {
+                Text(Self.markdownPreview(sample, theme: theme, font: settings.font))
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(theme.bgColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    /// The raw Markdown with its symbols dimmed, the way the Markdown editor shows it.
+    private static func markdownPreview(_ markdown: String, theme: Theme, font: NoteFont) -> AttributedString {
+        var result = AttributedString()
+        for (index, raw) in NoteParser.rawLines(markdown).enumerated() {
+            if index > 0 { result += AttributedString("\n") }
+            let line = NoteParser.parseLine(raw, index: index)
+            var prefix = AttributedString(line.prefix)
+            prefix.swiftUI.font = font.font(size: 14)
+            prefix.swiftUI.foregroundColor = line.isListItem ? theme.mainColor : theme.subColor
+            result += prefix
+            for piece in InlineMarkdown.pieces(line.content) {
+                var part = AttributedString(piece.text)
+                part.swiftUI.font = font.font(size: 14, bold: line.isHeading || piece.style.contains(.bold),
+                                              italic: piece.style.contains(.italic))
+                part.swiftUI.foregroundColor = piece.isSyntax ? theme.subColor : line.isChecked ? theme.subColor : theme.textColor
+                result += part
+            }
+        }
+        return result
+    }
+
+    private static let cheatSheet: [(String, String)] = [
+        ("# Heading", "# Heading"),
+        ("**bold**", "**bold**"),
+        ("*italic*", "*italic*"),
+        ("~~strike~~", "~~strike~~"),
+        ("==highlight==", "==highlight=="),
+        ("`code`", "`code`"),
+        ("- item", "- item"),
+        ("1. item", "1. item"),
+        ("- [ ] task", "- [ ] task"),
+        ("> quote", "> quote"),
+        ("[link](url)", "[link](https://example.com)"),
+        ("---", "---"),
+    ]
 }
