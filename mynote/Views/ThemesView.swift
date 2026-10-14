@@ -495,11 +495,6 @@ struct SupporterCard: View {
                 .buttonStyle(.plain)
                 .disabled(store.isRestoring)
             }
-            if style == .full {
-                Text("One-time purchase. No subscription, no ads, nothing else to pay.")
-                    .font(.caption)
-                    .foregroundStyle(theme.subColor)
-            }
         }
     }
 

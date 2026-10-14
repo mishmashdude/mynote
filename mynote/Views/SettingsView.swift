@@ -68,10 +68,6 @@ struct SettingsView: View {
                         Text(AppInfo.version)
                             .font(.caption)
                             .foregroundStyle(theme.subColor)
-                        Text(AppInfo.tagline)
-                            .font(.footnote.italic())
-                            .foregroundStyle(theme.subColor)
-                            .padding(.top, 14)
                     }
                     .frame(maxWidth: .infinity)
                     .listRowBackground(Color.clear)
@@ -268,11 +264,6 @@ struct AboutView: View {
                     Text(AppInfo.version)
                         .font(.footnote)
                         .foregroundStyle(theme.subColor)
-                    Text("mynote is a single-note app for the one list that matters right now. Write it, tick it off, and keep it on your Lock Screen and Dynamic Island all day.")
-                        .font(.subheadline)
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(theme.subColor)
-                        .padding(.top, 6)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)

@@ -15,7 +15,7 @@ struct LiveActivitySettingsView: View {
                     LockScreenPreview()
                     Text("Live Activity")
                         .font(.headline)
-                    Text("After you go live, your note appears on the Lock Screen and in the Dynamic Island, with checkboxes you can tick without opening the app. iOS ends each Live Activity after 8 hours, so mynote lines up fresh ones back to back to keep your list there.")
+                    Text("After you go live, your note appears on the Lock Screen, with checkboxes you can tick without opening the app. iOS ends each Live Activity after 8 hours, so mynote lines up fresh ones back to back to keep your list there.")
                         .font(.subheadline)
                         .foregroundStyle(theme.subColor)
                 }

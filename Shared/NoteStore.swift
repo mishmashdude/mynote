@@ -34,25 +34,28 @@ final class NoteStore {
     /// - the line at `index` is the same item: toggle it, unless it has already been flipped;
     /// - the note moved on: toggle the closest checkbox with the same words, if any.
     /// Words are compared without Markdown, which the Rich Text editor may have respelled.
-    func toggleLine(_ index: Int, expecting expected: String? = nil, wasChecked: Bool? = nil) {
+    /// Returns the line that was toggled, if any.
+    @discardableResult
+    func toggleLine(_ index: Int, expecting expected: String? = nil, wasChecked: Bool? = nil) -> Int? {
         var target = index
         if let expected {
             let lines = NoteParser.parse(document.current.text)
             let words = InlineMarkdown.plain(expected)
             let sameItem: (NoteLine) -> Bool = { $0.isTodo && $0.plainContent == words }
             if lines.indices.contains(index), sameItem(lines[index]) {
-                if let wasChecked, lines[index].isChecked != wasChecked { return }
+                if let wasChecked, lines[index].isChecked != wasChecked { return nil }
             } else {
                 let candidates = lines.filter { sameItem($0) && (wasChecked == nil || $0.isChecked == wasChecked) }
-                guard let nearest = candidates.min(by: { abs($0.id - index) < abs($1.id - index) }) else { return }
+                guard let nearest = candidates.min(by: { abs($0.id - index) < abs($1.id - index) }) else { return nil }
                 target = nearest.id
             }
         }
         let newText = NoteParser.toggle(document.current.text, line: target)
-        guard newText != document.current.text else { return }
+        guard newText != document.current.text else { return nil }
         document.current.text = newText
         document.current.updatedAt = .now
         commit(immediate: true)
+        return target
     }
 
     func setAllTodos(checked: Bool) {

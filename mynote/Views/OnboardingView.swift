@@ -26,20 +26,14 @@ struct OnboardingView: View {
                         .scaleEffect(appeared ? 1 : 0.9)
                         .opacity(appeared ? 1 : 0)
 
-                    VStack(spacing: 8) {
-                        Text("mynote")
-                            .font(.system(size: 40, weight: .bold, design: .monospaced))
-                            .foregroundStyle(theme.textColor)
-                        Text(AppInfo.tagline)
-                            .font(.title3)
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(theme.subColor)
-                    }
+                    Text("mynote")
+                        .font(.system(size: 40, weight: .bold, design: .monospaced))
+                        .foregroundStyle(theme.textColor)
 
                     VStack(alignment: .leading, spacing: 18) {
                         feature("checklist", "One focused note", "Checkboxes, lists, headings and bold, in rich text or Markdown.")
-                        feature("lock.iphone", "Always on your Lock Screen", "Go Live and mynote keeps your list on the Lock Screen and Dynamic Island, refreshing it on its own.")
-                        feature("paintpalette", "Themes devs love", "Dracula, Nord, Gruvbox, Catppuccin and \(ThemeCatalog.all.count - 4) more. Try any of them for free.")
+                        feature("lock.iphone", "Always on your Lock Screen", "Go Live and mynote keeps your list on the Lock Screen, refreshing it on its own.")
+                        feature("paintpalette", "Make it yours", "\(ThemeCatalog.all.count) colour themes, from deep darks to soft pastels. Try any of them for free.")
                     }
                     .padding(.horizontal, 28)
 

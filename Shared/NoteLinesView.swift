@@ -219,6 +219,8 @@ struct FittedNoteLines: View {
     var interaction: NoteLinesView.Interaction = .none
     /// Two columns only make sense where there's horizontal room (not small widgets / Watch).
     var allowsColumns = true
+    /// A line that was just ticked; it isn't hidden with the other finished items yet.
+    var justTicked: Int? = nil
 
     var body: some View {
         let useColumns = allowsColumns
@@ -237,7 +239,7 @@ struct FittedNoteLines: View {
                 // Dropping blank lines and dividers is enough; no "+N more" needed.
                 column(withoutSpacers)
             } else {
-                let fitted = Self.fit(lines, into: maxLines - 1)
+                let fitted = Self.fit(lines, into: maxLines - 1, keeping: justTicked)
                 VStack(alignment: .leading, spacing: spacing) {
                     column(fitted.shown)
                     if !fitted.summary.isEmpty {
@@ -253,10 +255,11 @@ struct FittedNoteLines: View {
     }
 
     /// When space runs out, hide ticked-off items first so open tasks stay visible.
-    static func fit(_ lines: [NoteLine], into slots: Int) -> (shown: [NoteLine], summary: String) {
+    /// `keeping` is a just-ticked line that stays put so the tick can be seen.
+    static func fit(_ lines: [NoteLine], into slots: Int, keeping kept: Int? = nil) -> (shown: [NoteLine], summary: String) {
         var shown = lines
         var hiddenDone = 0
-        while shown.count > slots, let index = shown.lastIndex(where: \.isChecked) {
+        while shown.count > slots, let index = shown.lastIndex(where: { $0.isChecked && $0.id != kept }) {
             shown.remove(at: index)
             hiddenDone += 1
         }
@@ -342,7 +345,8 @@ struct LiveNoteView: View {
                             sub: palette.sub,
                             accent: palette.accent,
                             spacing: 3,
-                            interaction: interactive ? .intents : .none
+                            interaction: interactive ? .intents : .none,
+                            justTicked: state.justTicked
                         )
                     }
                     if isStale {

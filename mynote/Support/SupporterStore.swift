@@ -119,8 +119,10 @@ final class SupporterStore {
     }
 
     private func setSupporter(_ owned: Bool) {
-        // Saved theme picks are left alone either way; see `ThemeAccess`.
         let settings = AppSettings.shared
         if settings.isSupporter != owned { settings.isSupporter = owned }
+        // StoreKit has answered. A theme saved back when every theme was free, and not one
+        // this person was allowed to keep, is replaced so nothing outside the app still reads it.
+        if !owned { settings.replaceLockedThemePicks() }
     }
 }

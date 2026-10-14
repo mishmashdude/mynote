@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UserNotifications
 
 struct HomeView: View {
@@ -104,7 +105,7 @@ struct HomeView: View {
         } message: {
             Text(LiveActivityManager.deviceSupportsLiveActivities
                  ? "Turn on Live Activities for mynote in Settings to keep your list on the Lock Screen."
-                 : "Your list can appear on the Lock Screen and in the Dynamic Island when mynote runs on an iPhone.")
+                 : "Your list can appear on the Lock Screen when mynote runs on an iPhone.")
         }
         .alert("Couldn't go live", isPresented: Binding(get: { liveError != nil }, set: { if !$0 { liveError = nil } })) {
             Button("OK", role: .cancel) {}
@@ -232,7 +233,7 @@ struct HomeView: View {
                         accent: theme.mainColor,
                         spacing: 6,
                         interaction: .action { line in
-                            withAnimation(.snappy) { store.toggleLine(line) }
+                            withAnimation(.snappy) { _ = store.toggleLine(line) }
                             toggleTick += 1
                         },
                         lineLimit: nil,
@@ -430,9 +431,11 @@ struct HomeView: View {
                 LiveDot(isLive: isLive, color: theme.mainColor, ring: theme.textColor)
                 Text(isLive ? "Live" : "Go Live")
                     .fontWeight(.medium)
-                    .contentTransition(.interpolate)
             }
             .padding(.horizontal, 6)
+            // A fixed size, with animations turned off, so the label can't slide inside the bar.
+            .fixedSize(horizontal: true, vertical: true)
+            .transaction { $0.disablesAnimations = true }
         }
         .disabled(store.current.isEmpty && !isLive)
         .accessibilityLabel(isLive ? "Live on Lock Screen. Double-tap to stop." : "Go Live on Lock Screen")
@@ -618,11 +621,11 @@ struct HomeView: View {
 }
 
 /// The little circle in the Go Live button: hollow when off, a softly pulsing dot when live.
+/// The pulse runs on a layer, not with a SwiftUI animation, so it can't drag the button around.
 private struct LiveDot: View {
     let isLive: Bool
     let color: Color
     let ring: Color
-    @State private var pulse = false
 
     var body: some View {
         ZStack {
@@ -630,22 +633,91 @@ private struct LiveDot: View {
                 .strokeBorder(ring.opacity(isLive ? 0 : 0.9), lineWidth: 1.6)
             Circle()
                 .fill(color)
-                .scaleEffect(isLive ? 1 : 0.01)
-            Circle()
-                .stroke(color.opacity(0.5), lineWidth: 2)
-                .scaleEffect(pulse ? 2.1 : 1)
-                .opacity(isLive && !pulse ? 1 : 0)
+                .opacity(isLive ? 1 : 0)
+            LivePulseRing(isLive: isLive, color: color)
+                .allowsHitTesting(false)
         }
         .frame(width: 11, height: 11)
-        .animation(.spring(duration: 0.35, bounce: 0.4), value: isLive)
-        .onAppear { startPulse() }
-        .onChange(of: isLive) { startPulse() }
+        .accessibilityHidden(true)
+    }
+}
+
+private struct LivePulseRing: UIViewRepresentable {
+    var isLive: Bool
+    var color: Color
+
+    func makeUIView(context: Context) -> LivePulseUIView {
+        let view = LivePulseUIView()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        return view
     }
 
-    private func startPulse() {
-        pulse = false
-        guard isLive else { return }
-        withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { pulse = true }
+    func updateUIView(_ uiView: LivePulseUIView, context: Context) {
+        uiView.ringColor = UIColor(color)
+        uiView.setPulsing(isLive)
+    }
+}
+
+private final class LivePulseUIView: UIView {
+    private let ring = CAShapeLayer()
+    private var pulsing = false
+
+    var ringColor: UIColor = .label {
+        didSet { ring.strokeColor = ringColor.cgColor }
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        backgroundColor = .clear
+        ring.fillColor = UIColor.clear.cgColor
+        ring.lineWidth = 1.5
+        ring.opacity = 0
+        layer.addSublayer(ring)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override var intrinsicContentSize: CGSize { CGSize(width: 11, height: 11) }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        ring.frame = bounds
+        let rect = bounds.insetBy(dx: ring.lineWidth / 2, dy: ring.lineWidth / 2)
+        guard rect.width > 0, rect.height > 0 else { return }
+        ring.path = UIBezierPath(ovalIn: rect).cgPath
+        if pulsing, ring.animation(forKey: "pulse") == nil { startAnimation() }
+    }
+
+    func setPulsing(_ pulsing: Bool) {
+        ring.strokeColor = ringColor.cgColor
+        guard pulsing != self.pulsing else { return }
+        self.pulsing = pulsing
+        if pulsing {
+            startAnimation()
+        } else {
+            ring.removeAnimation(forKey: "pulse")
+            ring.opacity = 0
+        }
+    }
+
+    private func startAnimation() {
+        ring.removeAnimation(forKey: "pulse")
+        guard bounds.width > 0 else { return }
+        let scale = CABasicAnimation(keyPath: "transform.scale")
+        scale.fromValue = 1
+        scale.toValue = 2.1
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0.55
+        fade.toValue = 0
+        let group = CAAnimationGroup()
+        group.animations = [scale, fade]
+        group.duration = 1.6
+        group.repeatCount = .infinity
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        group.isRemovedOnCompletion = false
+        ring.add(group, forKey: "pulse")
     }
 }
 

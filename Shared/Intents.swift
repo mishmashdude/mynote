@@ -33,9 +33,12 @@ struct ToggleItemIntent: LiveActivityIntent {
     func perform() async throws -> some IntentResult {
         Log.intents.notice("\(Self.self) running in \(Log.process, privacy: .public)")
         NoteStore.shared.reloadFromDisk()
-        NoteStore.shared.toggleLine(line, expecting: content, wasChecked: wasChecked)
+        let toggled = NoteStore.shared.toggleLine(line, expecting: content, wasChecked: wasChecked)
         NoteStore.shared.flushWidgetReload()
         await LiveActivityManager.shared.reconcile()
+        if let toggled, NoteParser.parse(NoteStore.shared.current.text).first(where: { $0.id == toggled })?.isChecked == true {
+            await LiveActivityManager.shared.showTick(line: toggled)
+        }
         return .result()
     }
 }
@@ -45,7 +48,7 @@ struct ToggleItemIntent: LiveActivityIntent {
 struct KeepOnLockScreenIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Keep mynote on Lock Screen"
     static let description = IntentDescription(
-        "Shows your mynote list on the Lock Screen and Dynamic Island, restarting it with a fresh timer. Add it to a Shortcuts automation to keep your list there all the time.",
+        "Shows your mynote list on the Lock Screen, restarting it with a fresh timer. Add it to a Shortcuts automation to keep your list there all the time.",
         categoryName: "Lock Screen"
     )
 
@@ -61,7 +64,7 @@ struct KeepOnLockScreenIntent: LiveActivityIntent {
 /// Takes the note off the Lock Screen.
 struct HideFromLockScreenIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Hide mynote from Lock Screen"
-    static let description = IntentDescription("Removes your list from the Lock Screen and Dynamic Island.", categoryName: "Lock Screen")
+    static let description = IntentDescription("Removes your list from the Lock Screen.", categoryName: "Lock Screen")
 
     @MainActor
     func perform() async throws -> some IntentResult {

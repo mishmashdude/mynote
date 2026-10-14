@@ -18,9 +18,25 @@ struct NoteActivityAttributes: ActivityAttributes {
         var style: LiveStyle
         /// True when another Live Activity is scheduled to take over from this one.
         var relaying: Bool
+        /// The line that was just ticked. It stays in view, ticked and crossed out, for a moment
+        /// before being folded into "N done" with the other finished items.
+        var justTicked: Int? = nil
 
+        /// Colours follow the shared settings, not the ids frozen into this activity.
+        /// iOS often keeps the card it built when the activity started (Lock Screen and
+        /// Notification Center included) and drops later updates, so a theme chosen
+        /// before it was locked would stay purple out there while the app shows Default.
         func theme(for scheme: ColorScheme) -> Theme {
-            ThemeCatalog.theme(scheme == .dark ? darkThemeID : lightThemeID)
+            SettingsSnapshot.load().themeChoice.theme(for: scheme)
+        }
+
+        /// True when both states would paint the card the same way. The note text can differ.
+        func hasSameAppearance(as other: ContentState) -> Bool {
+            lightThemeID == other.lightThemeID
+                && darkThemeID == other.darkThemeID
+                && font == other.font
+                && textSize == other.textSize
+                && style == other.style
         }
     }
 
@@ -76,6 +92,7 @@ final class LiveActivityManager {
 
     @ObservationIgnored private var pushTask: Task<Void, Never>?
     @ObservationIgnored private var observeTask: Task<Void, Never>?
+    @ObservationIgnored private var justTicked: Int?
 
     private init() {
         // Assigning in init doesn't trigger didSet, so this just restores the saved value.
@@ -194,6 +211,7 @@ final class LiveActivityManager {
     private func performReconcile(fromBackground: Bool) async {
         startObserving()
         Log.live.notice("reconcile in \(Log.process, privacy: .public): \(self.activities.count) activities [\(self.activities.map { "\($0.activityState)" }.joined(separator: ","), privacy: .public)]")
+        if await refreshStaleTheme(fromBackground: fromBackground) { return }
         guard SettingsSnapshot.load().liveEnabled else {
             for activity in activities {
                 await activity.end(nil, dismissalPolicy: .immediate)
@@ -272,9 +290,78 @@ final class LiveActivityManager {
                 try? await Task.sleep(for: .milliseconds(350))
             }
             guard !Task.isCancelled else { return }
-            await serially { await self.pushContent() }
+            await serially {
+                // A theme change has to start a new activity. Updating the one already
+                // on screen is budgeted, and Notification Center keeps the old colours.
+                if self.shouldRestartForAppearance {
+                    await self.performRestart()
+                } else {
+                    await self.pushContent()
+                }
+            }
         }
     }
+
+    private var shouldRestartForAppearance: Bool {
+        #if WIDGET_EXTENSION
+        false
+        #else
+        UIApplication.shared.applicationState == .active && activitiesNeedAppearanceRestart()
+        #endif
+    }
+
+    /// Rebuilds the Lock Screen card when it still carries a theme from before the current choice.
+    /// Returns true when that rebuild replaced the rest of reconcile.
+    private func refreshStaleTheme(fromBackground: Bool) async -> Bool {
+        guard !fromBackground else { return false }
+        let defaults = AppGroup.defaults
+        let needsEpoch = defaults.integer(forKey: Self.themeEpochKey) < Self.themeEpoch
+        let stale = activitiesNeedAppearanceRestart()
+        guard needsEpoch || stale else { return false }
+        guard activitiesEnabled, SettingsSnapshot.load().liveEnabled else {
+            if needsEpoch {
+                defaults.set(Self.themeEpoch, forKey: Self.themeEpochKey)
+                WidgetCenter.shared.reloadAllTimelines()
+            }
+            return false
+        }
+        Log.live.notice("rebuilding Live Activity so it picks up the current theme")
+        WidgetCenter.shared.reloadAllTimelines()
+        await performRestart()
+        if case .failed = status { return true }
+        if needsEpoch { defaults.set(Self.themeEpoch, forKey: Self.themeEpochKey) }
+        return true
+    }
+
+    private func activitiesNeedAppearanceRestart() -> Bool {
+        let desired = makeState()
+        return activities.contains { activity in
+            switch activity.activityState {
+            case .active, .pending, .stale:
+                return !activity.content.state.hasSameAppearance(as: desired)
+            default:
+                return false
+            }
+        }
+    }
+
+    /// Keeps a freshly ticked line on screen so the tick and strikethrough are seen,
+    /// then lets it fold away with the other finished items.
+    func showTick(line: Int) async {
+        justTicked = line
+        await serially { await self.pushContent() }
+        try? await Task.sleep(for: Self.tickLinger)
+        // A newer tick has taken over, and will clear itself.
+        guard justTicked == line else { return }
+        justTicked = nil
+        await serially { await self.pushContent() }
+    }
+
+    static let tickLinger: Duration = .milliseconds(1_400)
+
+    /// Bump when the Lock Screen should be rebuilt once so a card started under an old theme is replaced.
+    private static let themeEpochKey = "liveThemeEpoch"
+    private static let themeEpoch = 1
 
     // MARK: - Internals
 
@@ -288,7 +375,8 @@ final class LiveActivityManager {
             font: s.font,
             textSize: s.textSize,
             style: s.liveStyle,
-            relaying: s.autoRelay
+            relaying: s.autoRelay,
+            justTicked: justTicked
         )
     }
 

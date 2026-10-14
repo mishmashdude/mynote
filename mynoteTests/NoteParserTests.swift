@@ -83,6 +83,13 @@ struct NoteParserTests {
         #expect(tight.summary == "+1 more · 2 done")
     }
 
+    @Test func fitKeepsTheJustTickedItem() {
+        let lines = NoteParser.parse("[x] a\n[ ] b\n[x] c\n[ ] d\n[ ] e")
+        let fitted = FittedNoteLines.fit(lines, into: 4, keeping: 2)
+        #expect(fitted.shown.map(\.content) == ["b", "c", "d", "e"])
+        #expect(fitted.summary == "1 done")
+    }
+
     @Test func shareTextIsReadable() {
         #expect(NoteParser.shareText("# Hi\n[x] a\n[ ] b\n- c") == "HI\n☑︎ a\n☐ b\n• c")
         #expect(NoteParser.shareText("1. **one**\n1. two\n  - deep") == "1. one\n2. two\n  • deep")
@@ -357,6 +364,36 @@ struct ThemeAccessTests {
     @Test func onlyTheDefaultsAreFree() {
         let free = ThemeAccess(isSupporter: false, kept: [], rulesApply: true)
         #expect(ThemeCatalog.all.filter { free.allows($0.id) }.map(\.id).sorted() == [ThemeCatalog.defaultDarkID, ThemeCatalog.defaultLightID])
+    }
+
+    @Test func aLockedPurpleThemeResolvesToTheMatchingDefault() {
+        let access = ThemeAccess(isSupporter: false, kept: [], rulesApply: true)
+        #expect(access.resolved("lil-dragon") == ThemeCatalog.defaultLightID)
+        #expect(access.resolved("dracula") == ThemeCatalog.defaultDarkID)
+        #expect(access.resolved(ThemeCatalog.defaultLightID) == ThemeCatalog.defaultLightID)
+        let kept = ThemeAccess(isSupporter: false, kept: ["lil-dragon"], rulesApply: true)
+        #expect(kept.resolved("lil-dragon") == "lil-dragon")
+        let choice = ThemeChoice(matchSystem: true, themeID: "lil-dragon", lightThemeID: "lil-dragon", darkThemeID: "dracula")
+        let shown = choice.allowed(by: access)
+        #expect(shown.lightThemeID == ThemeCatalog.defaultLightID)
+        #expect(shown.darkThemeID == ThemeCatalog.defaultDarkID)
+        #expect(choice.lightThemeID == "lil-dragon")
+    }
+}
+
+struct LiveActivityAppearanceTests {
+    @Test func appearanceIgnoresTheNoteText() {
+        let purple = NoteActivityAttributes.ContentState(
+            text: "one", lightThemeID: "lil-dragon", darkThemeID: "dracula",
+            font: .system, textSize: .regular, style: .theme, relaying: true)
+        let edited = NoteActivityAttributes.ContentState(
+            text: "two", lightThemeID: "lil-dragon", darkThemeID: "dracula",
+            font: .system, textSize: .regular, style: .theme, relaying: false, justTicked: 1)
+        let reset = NoteActivityAttributes.ContentState(
+            text: "one", lightThemeID: ThemeCatalog.defaultLightID, darkThemeID: ThemeCatalog.defaultDarkID,
+            font: .system, textSize: .regular, style: .theme, relaying: true)
+        #expect(purple.hasSameAppearance(as: edited))
+        #expect(!purple.hasSameAppearance(as: reset))
     }
 }
 

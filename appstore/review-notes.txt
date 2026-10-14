@@ -3,7 +3,7 @@ mynote is a single-note app. No account or sign-in is needed.
 How to test the main features:
 1. Open the app and tap Get Started (a sample checklist is pre-filled).
 2. Tap the note card to edit it. The bar above the keyboard adds checkboxes, lists, headings, bold, italic and more. Settings > Editor switches to a plain Markdown editor; both edit the same note.
-3. Tap "Go Live" at the bottom of the screen. Allow Live Activities (and notifications if you like). Lock the device: the note appears on the Lock Screen as a Live Activity and in the Dynamic Island. Tap a checkbox there to tick it off without opening the app.
+3. Tap "Go Live" at the bottom of the screen. Allow Live Activities (and notifications if you like). Lock the device: the note appears on the Lock Screen as a Live Activity. Tap a checkbox there to tick it off without opening the app.
 4. The trash button moves the note to the Archive (box button, top right). The first time, an alert explains this; after that an Undo button appears for a few seconds.
 
 In-app purchase: "mynote Supporter" (com.andi.mynote.supporter), a one-time non-consumable. Today it unlocks all 50 colour themes (Default Light and Default Dark are free). Tap the palette button (bottom left) to open Themes: tapping any other theme previews it across the app for free, and "Unlock" or "Become a Supporter" buys it. Restore Purchase is at the bottom of the Themes sheet and in Settings > Support mynote. Nothing else in the app is locked.

@@ -19,7 +19,6 @@ enum AppGroup {
 
 enum AppInfo {
     static let name = "mynote"
-    static let tagline = "One list. Always on your Lock Screen."
 
     static var version: String {
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"

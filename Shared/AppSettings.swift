@@ -51,11 +51,9 @@ struct ThemeChoice: Codable, Hashable, Sendable {
     /// The same choice with any theme the user can't use swapped for the matching default.
     func allowed(by access: ThemeAccess) -> ThemeChoice {
         var choice = self
-        if !access.allows(themeID) {
-            choice.themeID = ThemeCatalog.theme(themeID).isDark ? ThemeCatalog.defaultDarkID : ThemeCatalog.defaultLightID
-        }
-        if !access.allows(lightThemeID) { choice.lightThemeID = ThemeCatalog.defaultLightID }
-        if !access.allows(darkThemeID) { choice.darkThemeID = ThemeCatalog.defaultDarkID }
+        choice.themeID = access.resolved(themeID)
+        choice.lightThemeID = access.resolved(lightThemeID)
+        choice.darkThemeID = access.resolved(darkThemeID)
         return choice
     }
 }
@@ -63,9 +61,9 @@ struct ThemeChoice: Codable, Hashable, Sendable {
 /// Which themes can be shown. Everyone gets the free ones, supporters get them all, and
 /// people who updated from 1.0 keep the ones they had picked.
 ///
-/// Saved picks are never rewritten: a locked theme is only swapped for a default when it's
-/// drawn. So if a purchase briefly can't be confirmed (signed out, a new phone), nothing is
-/// lost, and everything comes back as soon as it is.
+/// A locked theme is swapped for a default when it's drawn. The saved pick is rewritten
+/// only after StoreKit confirms this Apple Account doesn't own Supporter, so a check that
+/// hasn't finished can't throw a theme away. Themes kept from 1.0 are still allowed.
 struct ThemeAccess: Sendable {
     var isSupporter: Bool
     var kept: Set<String>
@@ -75,6 +73,12 @@ struct ThemeAccess: Sendable {
 
     func allows(_ id: String) -> Bool {
         !rulesApply || isSupporter || ThemeCatalog.freeIDs.contains(id) || kept.contains(id)
+    }
+
+    /// The id to actually paint. A locked dark theme becomes Default Dark, a locked light one Default Light.
+    func resolved(_ id: String) -> String {
+        guard !allows(id) else { return id }
+        return ThemeCatalog.theme(id).isDark ? ThemeCatalog.defaultDarkID : ThemeCatalog.defaultLightID
     }
 
     static func load(_ d: UserDefaults) -> ThemeAccess {
@@ -230,6 +234,15 @@ final class AppSettings {
     }
 
     func canUse(_ theme: Theme) -> Bool { access.allows(theme.id) }
+
+    /// Writes the themes this person is allowed to use over any locked picks.
+    /// A Supporter's picks, and themes kept from version 1.0, are left as they are.
+    func replaceLockedThemePicks() {
+        let allowed = savedThemeChoice.allowed(by: access)
+        if themeID != allowed.themeID { themeID = allowed.themeID }
+        if lightThemeID != allowed.lightThemeID { lightThemeID = allowed.lightThemeID }
+        if darkThemeID != allowed.darkThemeID { darkThemeID = allowed.darkThemeID }
+    }
 
     /// Themes were all free in 1.0. Anyone updating keeps the themes they had chosen.
     private func keepThemesPickedBeforeUnlock() {
