@@ -1,4 +1,5 @@
-"""Builds the App Store screenshots (1320x2868, 6.9") from raw simulator captures."""
+"""Builds the App Store screenshots (1320x2868, 6.9") from raw simulator captures.
+Clears the output folders first so renamed or dropped panels don't linger."""
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import os
 
@@ -40,6 +41,9 @@ def rounded_mask(size, radius):
 framed = []
 for folder in (OUT, OUT + "-6.9-jpg", OUT + "-6.5", OUT + "-6.5-jpg"):
     os.makedirs(folder, exist_ok=True)
+    for old in os.listdir(folder):
+        if old.lower().endswith((".png", ".jpg")):
+            os.remove(os.path.join(folder, old))
 
 
 def compose(raw, out, lines, bg, fg, accent, highlight_line=1, sub=None):
@@ -93,23 +97,20 @@ compose("mynote-raw-home.png", "01-home.png", ["One list.", "Always in sight."],
 compose("mynote-raw-lock.png", "02-lock-screen.png", ["Lives on your", "Lock Screen"],
         ("#0F2147", "#06122B"), (235, 240, 255), hex2rgb("#E2B714"),
         sub="Tick items off without unlocking.")
-compose("mynote-raw-island.png", "03-dynamic-island.png", ["Tick it off", "from anywhere"],
-        ("#1B2B4F", "#0B1430"), (235, 240, 255), hex2rgb("#E2B714"),
-        sub="In the Dynamic Island, all day.")
-compose("mynote-raw-themes.png", "04-themes.png", ["50 themes", "devs love"],
+compose("mynote-raw-themes.png", "03-themes.png", ["50 themes", "to make it yours"],
         ("#2C2E3B", "#1F202A"), hex2rgb("#F8F8F2"), hex2rgb("#BD93F9"),
         sub="Try any free. Supporters get all 50.")
-compose("mynote-raw-editor.png", "05-editor.png", ["Write it", "your way"],
+compose("mynote-raw-editor.png", "04-editor.png", ["Write it", "your way"],
         ("#FBF6F0", "#F2E9E1"), hex2rgb("#575279"), hex2rgb("#B4637A"),
         sub="Rich text or Markdown, your pick.")
-compose("mynote-raw-widget.png", "06-widget.png", ["Widgets that", "stay in sync"],
+compose("mynote-raw-widget.png", "05-widget.png", ["Widgets that", "stay in sync"],
         ("#E3EEF6", "#C9DCEB"), hex2rgb("#22324A"), hex2rgb("#B4637A"),
         sub="Tappable checkboxes on your Home Screen.")
 
-# Contact sheet to review all six at a glance.
+# Contact sheet to review them all at a glance.
 tw, th, gap = 440, 956, 20
-sheet = Image.new("RGB", (3 * tw + 2 * gap, 2 * th + gap), (128, 128, 128))
+sheet = Image.new("RGB", (len(framed) * tw + (len(framed) - 1) * gap, th), (128, 128, 128))
 for i, img in enumerate(framed):
-    sheet.paste(img.resize((tw, th), Image.LANCZOS), ((i % 3) * (tw + gap), (i // 3) * (th + gap)))
+    sheet.paste(img.resize((tw, th), Image.LANCZOS), (i * (tw + gap), 0))
 sheet.save(os.path.join(ROOT, "appstore", "mynote-screenshot-sheet.jpg"), quality=85)
 print("wrote contact sheet")
