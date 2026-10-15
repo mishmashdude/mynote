@@ -202,10 +202,7 @@ struct HomeView: View {
         ZStack(alignment: .topLeading) {
             cardBackground
             NoteLinesView(
-                lines: FittedNoteLines.hidingFinished(
-                    NoteParser.visibleLines(text),
-                    keeping: Set(lingeringTicks.keys)
-                ).shown,
+                lines: FittedNoteLines.hidingFinished(NoteParser.visibleLines(text)).shown,
                 font: settings.font,
                 size: settings.textSize.appPointSize,
                 text: theme.textColor,

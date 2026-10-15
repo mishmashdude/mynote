@@ -33,8 +33,10 @@ struct ToggleItemIntent: LiveActivityIntent {
     func perform() async throws -> some IntentResult {
         Log.intents.notice("\(Self.self) running in \(Log.process, privacy: .public)")
         NoteStore.shared.reloadFromDisk()
+        let before = NoteParser.parse(NoteStore.shared.current.text)
         // Arm before the note is saved so the reload still shows this line crossed out.
-        if wasChecked == false {
+        let checking = wasChecked == false || (wasChecked == nil && before.first { $0.id == line }?.isChecked == false)
+        if checking {
             LiveActivityManager.shared.armTick(line: line)
         }
         let toggled = NoteStore.shared.toggleLine(line, expecting: content, wasChecked: wasChecked)
@@ -43,7 +45,7 @@ struct ToggleItemIntent: LiveActivityIntent {
         } ?? false
         if didCheck, let toggled, toggled != line {
             LiveActivityManager.shared.armTick(line: toggled)
-        } else if !didCheck, wasChecked == false {
+        } else if !didCheck, checking {
             await LiveActivityManager.shared.endTick(line: line)
         }
         NoteStore.shared.flushWidgetReload()
