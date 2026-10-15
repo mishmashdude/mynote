@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A colour theme for the app, widgets and Live Activity.
+/// A colour theme in the spirit of the editor / monkeytype themes developers love.
 /// Every theme is described by the same seven colours so it can paint the app,
 /// the widget and the Live Activity consistently.
 struct Theme: Identifiable, Hashable, Sendable {
@@ -142,8 +142,8 @@ enum ThemeCatalog {
         Theme(id: "catppuccin-macchiato", name: "Catppuccin Macchiato", bg: 0x24273A, card: 0x363A4F, text: 0xCAD3F5, sub: 0x8087A2, main: 0x8AADF4, caret: 0xF4DBD6, error: 0xED8796),
         Theme(id: "tokyo-night", name: "Tokyo Night", bg: 0x1A1B26, card: 0x24283B, text: 0xC0CAF5, sub: 0x565F89, main: 0x7AA2F7, caret: 0xBB9AF7, error: 0xF7768E),
         Theme(id: "one-dark", name: "One Dark", bg: 0x282C34, card: 0x2F343F, text: 0xABB2BF, sub: 0x7F848E, main: 0x61AFEF, caret: 0xC678DD, error: 0xE06C75),
-        Theme(id: "github-dark", name: "Midnight", bg: 0x0D1117, card: 0x161B22, text: 0xC9D1D9, sub: 0x8B949E, main: 0x58A6FF, caret: 0x58A6FF, error: 0xF85149),
-        Theme(id: "vscode", name: "Graphite", bg: 0x1E1E1E, card: 0x252526, text: 0xD4D4D4, sub: 0x808080, main: 0x007ACC, caret: 0x569CD6, error: 0xF44747),
+        Theme(id: "github-dark", name: "GitHub Dark", bg: 0x0D1117, card: 0x161B22, text: 0xC9D1D9, sub: 0x8B949E, main: 0x58A6FF, caret: 0x58A6FF, error: 0xF85149),
+        Theme(id: "vscode", name: "VS Code Dark+", bg: 0x1E1E1E, card: 0x252526, text: 0xD4D4D4, sub: 0x808080, main: 0x007ACC, caret: 0x569CD6, error: 0xF44747),
         Theme(id: "monokai", name: "Monokai", bg: 0x272822, card: 0x3E3D32, text: 0xF8F8F2, sub: 0x75715E, main: 0xF92672, caret: 0x66D9EF, error: 0xFD971F),
         Theme(id: "solarized-dark", name: "Solarized Dark", bg: 0x002B36, card: 0x073642, text: 0x93A1A1, sub: 0x586E75, main: 0x859900, caret: 0xDC322F, error: 0xD33682),
         Theme(id: "rose-pine", name: "Rosé Pine", bg: 0x191724, card: 0x1F1D2E, text: 0xE0DEF4, sub: 0x6E6A86, main: 0xEBBCBA, caret: 0xC4A7E7, error: 0xEB6F92),
@@ -157,7 +157,7 @@ enum ThemeCatalog {
         Theme(id: "cobalt2", name: "Cobalt2", bg: 0x193549, card: 0x1F4662, text: 0xFFFFFF, sub: 0x8FB2C9, main: 0xFFC600, caret: 0xFFC600, error: 0xFF628C),
         Theme(id: "horizon", name: "Horizon", bg: 0x1C1E26, card: 0x232530, text: 0xD5D8DA, sub: 0x6C6F93, main: 0xE95678, caret: 0xFAB795, error: 0xF43E5C),
         Theme(id: "matrix", name: "Matrix", bg: 0x000000, card: 0x0A140A, text: 0xD1FFCD, sub: 0x2F8F2F, main: 0x15FF00, caret: 0x15FF00, error: 0xDA3333),
-        Theme(id: "terminal", name: "Phosphor", bg: 0x191A1B, card: 0x232425, text: 0xE7EAE0, sub: 0x5A5C5F, main: 0x79A617, caret: 0x79A617, error: 0xA61717),
+        Theme(id: "terminal", name: "Terminal", bg: 0x191A1B, card: 0x232425, text: 0xE7EAE0, sub: 0x5A5C5F, main: 0x79A617, caret: 0x79A617, error: 0xA61717),
         Theme(id: "8008", name: "8008", bg: 0x333A45, card: 0x2E343D, text: 0xE9ECF0, sub: 0x939EAE, main: 0xF44C7F, caret: 0xF44C7F, error: 0xDA3333),
         Theme(id: "carbon", name: "Carbon", bg: 0x313131, card: 0x2B2B2B, text: 0xF5E6C8, sub: 0x6B6B6B, main: 0xF66E0D, caret: 0xF66E0D, error: 0xE72D2D),
         Theme(id: "bento", name: "Bento", bg: 0x2D394D, card: 0x263041, text: 0xFFFAF8, sub: 0x6B91A6, main: 0xFF7A90, caret: 0xFF7A90, error: 0xEE2A3A),
@@ -167,7 +167,7 @@ enum ThemeCatalog {
         Theme(id: "aurora", name: "Aurora", bg: 0x011926, card: 0x032636, text: 0xFFFFFF, sub: 0x3F7A87, main: 0x00E980, caret: 0x00E980, error: 0xB94DA1),
         Theme(id: "tokyo-night-storm", name: "Tokyo Night Storm", bg: 0x24283B, card: 0x2F334D, text: 0xC0CAF5, sub: 0x7A82A8, main: 0x7DCFFF, caret: 0xBB9AF7, error: 0xF7768E),
         Theme(id: "rose-pine-moon", name: "Rosé Pine Moon", bg: 0x232136, card: 0x2A273F, text: 0xE0DEF4, sub: 0x908CAA, main: 0xEA9A97, caret: 0xC4A7E7, error: 0xEB6F92),
-        Theme(id: "superuser", name: "Lagoon", bg: 0x262A33, card: 0x2F3440, text: 0xE5F7EF, sub: 0x6A8496, main: 0x43FFAF, caret: 0x43FFAF, error: 0xFF5F5F),
+        Theme(id: "superuser", name: "Superuser", bg: 0x262A33, card: 0x2F3440, text: 0xE5F7EF, sub: 0x6A8496, main: 0x43FFAF, caret: 0x43FFAF, error: 0xFF5F5F),
 
         // Light themes
         Theme(id: "serika", name: "Serika", bg: 0xE1E1E3, card: 0xEDEDEF, text: 0x323437, sub: 0x868A8F, main: 0x9C7B00, caret: 0xE2B714, error: 0xDA3333),
@@ -175,7 +175,7 @@ enum ThemeCatalog {
         Theme(id: "gruvbox-light", name: "Gruvbox Light", bg: 0xFBF1C7, card: 0xF2E5BC, text: 0x3C3836, sub: 0x928374, main: 0xB57614, caret: 0xAF3A03, error: 0x9D0006),
         Theme(id: "catppuccin-latte", name: "Catppuccin Latte", bg: 0xEFF1F5, card: 0xFFFFFF, text: 0x4C4F69, sub: 0x8C8FA1, main: 0x8839EF, caret: 0xDC8A78, error: 0xD20F39),
         Theme(id: "tokyo-day", name: "Tokyo Night Day", bg: 0xE1E2E7, card: 0xF0F1F5, text: 0x3760BF, sub: 0x848CB5, main: 0x2E7DE9, caret: 0x9854F1, error: 0xF52A65),
-        Theme(id: "github-light", name: "Daylight", bg: 0xF6F8FA, card: 0xFFFFFF, text: 0x24292F, sub: 0x6E7781, main: 0x0969DA, caret: 0x0969DA, error: 0xCF222E),
+        Theme(id: "github-light", name: "GitHub Light", bg: 0xF6F8FA, card: 0xFFFFFF, text: 0x24292F, sub: 0x6E7781, main: 0x0969DA, caret: 0x0969DA, error: 0xCF222E),
         Theme(id: "solarized-light", name: "Solarized Light", bg: 0xFDF6E3, card: 0xEEE8D5, text: 0x475B62, sub: 0x7D8C8C, main: 0x6F8000, caret: 0xDC322F, error: 0xD33682),
         Theme(id: "rose-pine-dawn", name: "Rosé Pine Dawn", bg: 0xFAF4ED, card: 0xFFFAF3, text: 0x575279, sub: 0x8C87A0, main: 0xB4637A, caret: 0x907AA9, error: 0xB4637A),
         Theme(id: "ayu-light", name: "Ayu Light", bg: 0xFCFCFC, card: 0xF3F4F5, text: 0x5C6166, sub: 0x8A9199, main: 0xD9661A, caret: 0xFFAA33, error: 0xE65050),
