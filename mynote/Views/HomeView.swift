@@ -40,6 +40,9 @@ struct HomeView: View {
     @State private var undoTask: Task<Void, Never>?
 
     @State private var toggleTick = 0
+    /// Checked lines still on the card so the strike animation can finish.
+    /// The token stops an older dismissal from hiding a line that was ticked again.
+    @State private var lingeringTicks: [Int: UUID] = [:]
     @State private var liveTick = 0
     @State private var landTick = 0
 
@@ -69,6 +72,8 @@ struct HomeView: View {
             ArchiveView().environment(\.theme, theme)
         }
         .onChange(of: showArchive) { if showArchive { dismissUndo() } }
+        .onChange(of: store.current.id) { forgetLingeringTicks() }
+        .onChange(of: isEditing) { if isEditing { forgetLingeringTicks() } }
         .sheet(isPresented: $showSettings) {
             SettingsView().environment(\.theme, theme)
         }
@@ -197,7 +202,10 @@ struct HomeView: View {
         ZStack(alignment: .topLeading) {
             cardBackground
             NoteLinesView(
-                lines: NoteParser.visibleLines(text),
+                lines: FittedNoteLines.hidingFinished(
+                    NoteParser.visibleLines(text),
+                    keeping: Set(lingeringTicks.keys)
+                ).shown,
                 font: settings.font,
                 size: settings.textSize.appPointSize,
                 text: theme.textColor,
@@ -213,32 +221,40 @@ struct HomeView: View {
     }
 
     private var displayCard: some View {
-        let lines = NoteParser.visibleLines(store.current.text)
+        let all = NoteParser.visibleLines(store.current.text)
+        let settled = FittedNoteLines.hidingFinished(all, keeping: Set(lingeringTicks.keys))
+        let lines = settled.shown
         let size = settings.textSize.appPointSize
         return ZStack(alignment: .topLeading) {
             cardBackground
-            if lines.isEmpty {
+            if all.isEmpty {
                 Text("Start typing...")
                     .font(settings.font.font(size: size))
                     .foregroundStyle(theme.subColor)
                     .padding(24)
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
-                    NoteLinesView(
-                        lines: lines,
-                        font: settings.font,
-                        size: size,
-                        text: theme.textColor,
-                        sub: theme.subColor,
-                        accent: theme.mainColor,
-                        spacing: 6,
-                        interaction: .action { line in
-                            withAnimation(.snappy) { _ = store.toggleLine(line) }
-                            toggleTick += 1
-                        },
-                        lineLimit: nil,
-                        tappableLinks: true
-                    )
+                    VStack(alignment: .leading, spacing: 6) {
+                        if !lines.isEmpty {
+                            NoteLinesView(
+                                lines: lines,
+                                font: settings.font,
+                                size: size,
+                                text: theme.textColor,
+                                sub: theme.subColor,
+                                accent: theme.mainColor,
+                                spacing: 6,
+                                interaction: .action { toggleDisplayedLine($0) },
+                                lineLimit: nil,
+                                tappableLinks: true
+                            )
+                        }
+                        if settled.hiddenDone > 0 {
+                            Text("\(settled.hiddenDone) done")
+                                .font(settings.font.font(size: size * 0.85))
+                                .foregroundStyle(theme.subColor)
+                        }
+                    }
                     .padding(24)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
@@ -414,11 +430,17 @@ struct HomeView: View {
         let progress = NoteParser.progress(store.current.text)
         if progress.total > 0 {
             Divider()
-            Button { withAnimation(.snappy) { store.setAllTodos(checked: false) } } label: {
+            Button {
+                forgetLingeringTicks()
+                withAnimation(tickAnimation) { store.setAllTodos(checked: false) }
+            } label: {
                 Label("Uncheck All", systemImage: "square")
             }
             .disabled(progress.done == 0)
-            Button(role: .destructive) { withAnimation(.snappy) { store.removeCompleted() } } label: {
+            Button(role: .destructive) {
+                forgetLingeringTicks()
+                withAnimation(tickAnimation) { store.removeCompleted() }
+            } label: {
                 Label("Clear Completed", systemImage: "checkmark.square")
             }
             .disabled(progress.done == 0)
@@ -591,6 +613,46 @@ struct HomeView: View {
                 toggleTick += 1
             }
         }
+    }
+
+    /// Ticking plays the strike, then the row leaves. Unticking brings it straight back.
+    /// Lines that were already done stay off the card, so they don't sit at the top.
+    private func toggleDisplayedLine(_ line: Int) {
+        let wasChecked = NoteParser.parse(store.current.text).contains { $0.id == line && $0.isChecked }
+        if wasChecked {
+            lingeringTicks.removeValue(forKey: line)
+            withAnimation(tickAnimation) { _ = store.toggleLine(line) }
+            toggleTick += 1
+            Task { await LiveActivityManager.shared.endTick(line: line) }
+            return
+        }
+
+        let token = UUID()
+        LiveActivityManager.shared.armTick(line: line)
+        withAnimation(tickAnimation) {
+            lingeringTicks[line] = token
+            _ = store.toggleLine(line)
+        }
+        toggleTick += 1
+
+        let wait = RecentTick.remaining() ?? LiveActivityManager.tickLingerInterval
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(wait))
+            guard lingeringTicks[line] == token else { return }
+            withAnimation(tickAnimation) {
+                lingeringTicks.removeValue(forKey: line)
+            }
+            await LiveActivityManager.shared.endTick(line: line)
+        }
+    }
+
+    private var tickAnimation: Animation? { reduceMotion ? nil : .snappy }
+
+    /// Drops a strike that's still playing, without animating it away. Used when the
+    /// note itself is going away or the words on those lines may have moved.
+    private func forgetLingeringTicks() {
+        instantly { lingeringTicks.removeAll() }
+        Task { await LiveActivityManager.shared.cancelAnyTick() }
     }
 
     private func toggleLive() {

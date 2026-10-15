@@ -18,8 +18,8 @@ struct NoteActivityAttributes: ActivityAttributes {
         var style: LiveStyle
         /// True when another Live Activity is scheduled to take over from this one.
         var relaying: Bool
-        /// The line that was just ticked. It stays in view, ticked and crossed out, for a moment
-        /// before being folded into "N done" with the other finished items.
+        /// The line that was just ticked. Finished lines stay off the list, but this one
+        /// remains, ticked and crossed out, until the strike has been seen.
         var justTicked: Int? = nil
 
         /// Colours follow the shared settings, not the ids frozen into this activity.
@@ -345,19 +345,47 @@ final class LiveActivityManager {
         }
     }
 
-    /// Keeps a freshly ticked line on screen so the tick and strikethrough are seen,
-    /// then lets it fold away with the other finished items.
-    func showTick(line: Int) async {
+    /// Remembers a line that is about to be ticked, before the note is saved, so the
+    /// refresh that follows still draws it crossed out instead of dropping it immediately.
+    func armTick(line: Int) {
         justTicked = line
-        await serially { await self.pushContent() }
-        try? await Task.sleep(for: Self.tickLinger)
-        // A newer tick has taken over, and will clear itself.
+        if RecentTick.line() != line {
+            RecentTick.begin(line: line)
+        }
+    }
+
+    /// Keeps a freshly ticked line on screen so the tick and strikethrough are seen,
+    /// then lets it leave with the other finished items.
+    func showTick(line: Int) async {
+        if justTicked != line {
+            armTick(line: line)
+            await serially { await self.pushContent() }
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        // Wait out the moment that started when the tick was armed, not a second full pause.
+        if justTicked == line {
+            let left = RecentTick.remaining() ?? Self.tickLingerInterval
+            try? await Task.sleep(for: .seconds(left))
+        }
+        await endTick(line: line)
+    }
+
+    /// The strike has been seen, or the tick was undone. The line can leave the list.
+    func endTick(line: Int) async {
         guard justTicked == line else { return }
         justTicked = nil
+        RecentTick.clear(line: line)
         await serially { await self.pushContent() }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    func cancelAnyTick() async {
+        guard let line = justTicked else { return }
+        await endTick(line: line)
     }
 
     static let tickLinger: Duration = .milliseconds(1_400)
+    static let tickLingerInterval: TimeInterval = RecentTick.linger
 
     /// Bump when the Lock Screen should be rebuilt once so a card started under an old theme is replaced.
     /// 2: the theme colour moved from the iOS background tint into the view.
@@ -507,6 +535,46 @@ final class LiveActivityManager {
                 self?.refreshStatus()
             }
         }
+    }
+}
+
+// MARK: - A tick that is still on screen
+
+/// How long a line that was just ticked stays visible. Shared by the app, the widget
+/// timeline and the Live Activity so they drop it together.
+enum RecentTick {
+    static let linger: TimeInterval = 1.4
+    private static let lineKey = "recentTickLine"
+    private static let untilKey = "recentTickUntil"
+
+    static func begin(line: Int, now: Date = .now) {
+        let defaults = AppGroup.defaults
+        defaults.set(line, forKey: lineKey)
+        defaults.set(now.addingTimeInterval(linger), forKey: untilKey)
+    }
+
+    /// Forgets this tick. A newer tick on another line is left alone.
+    static func clear(line: Int) {
+        let defaults = AppGroup.defaults
+        guard defaults.object(forKey: lineKey) as? Int == line else { return }
+        defaults.removeObject(forKey: lineKey)
+        defaults.removeObject(forKey: untilKey)
+    }
+
+    /// The line to keep on screen, if its moment hasn't passed. Line 0 is a real line.
+    static func line(at date: Date = .now) -> Int? {
+        guard let until = expiresAt(), until > date else { return nil }
+        return AppGroup.defaults.object(forKey: lineKey) as? Int
+    }
+
+    static func expiresAt() -> Date? {
+        AppGroup.defaults.object(forKey: untilKey) as? Date
+    }
+
+    static func remaining(at date: Date = .now) -> TimeInterval? {
+        guard let until = expiresAt() else { return nil }
+        let left = until.timeIntervalSince(date)
+        return left > 0 ? left : nil
     }
 }
 

@@ -223,54 +223,94 @@ struct FittedNoteLines: View {
     var justTicked: Int? = nil
 
     var body: some View {
+        let keptIDs = Set(justTicked.map { [$0] } ?? [])
+        let settled = Self.hidingFinished(lines, keeping: keptIDs)
         let useColumns = allowsColumns
-            && lines.count > maxLines
-            && lines.count <= maxLines * 2
-            && lines.allSatisfy { ($0.isListItem || $0.kind == .text) && $0.indent == 0 && $0.plainContent.count <= 18 }
+            && settled.shown.count > maxLines
+            && settled.shown.count <= maxLines * 2
+            && settled.shown.allSatisfy { ($0.isListItem || $0.kind == .text) && $0.indent == 0 && $0.plainContent.count <= 18 }
         if useColumns {
-            let half = (lines.count + 1) / 2
-            HStack(alignment: .top, spacing: 14) {
-                column(Array(lines.prefix(half)))
-                column(Array(lines.dropFirst(half)))
-            }
-        } else if lines.count > maxLines {
-            let withoutSpacers = lines.filter { $0.kind != .blank && $0.kind != .divider }
-            if withoutSpacers.count <= maxLines {
-                // Dropping blank lines and dividers is enough; no "+N more" needed.
-                column(withoutSpacers)
-            } else {
-                let fitted = Self.fit(lines, into: maxLines - 1, keeping: justTicked)
-                VStack(alignment: .leading, spacing: spacing) {
-                    column(fitted.shown)
-                    if !fitted.summary.isEmpty {
-                        Text(fitted.summary)
-                            .font(font.font(size: size * 0.85))
-                            .foregroundStyle(sub)
-                    }
+            let half = (settled.shown.count + 1) / 2
+            VStack(alignment: .leading, spacing: spacing) {
+                HStack(alignment: .top, spacing: 14) {
+                    column(Array(settled.shown.prefix(half)))
+                    column(Array(settled.shown.dropFirst(half)))
+                }
+                if settled.hiddenDone > 0 {
+                    summaryLabel("\(settled.hiddenDone) done")
                 }
             }
         } else {
-            column(lines)
+            let fitted = Self.layout(lines, maxLines: maxLines, keeping: justTicked)
+            VStack(alignment: .leading, spacing: spacing) {
+                if !fitted.shown.isEmpty {
+                    column(fitted.shown)
+                }
+                if !fitted.summary.isEmpty {
+                    summaryLabel(fitted.summary)
+                }
+            }
         }
     }
 
-    /// When space runs out, hide ticked-off items first so open tasks stay visible.
+    private func summaryLabel(_ summary: String) -> some View {
+        Text(summary)
+            .font(font.font(size: size * 0.85))
+            .foregroundStyle(sub)
+    }
+
+    /// Finished checklist lines leave the list. `keeping` is a line that was just ticked
+    /// and stays so the strike can be seen. Blank lines left behind are folded up.
+    static func hidingFinished(_ lines: [NoteLine], keeping kept: Set<Int> = []) -> (shown: [NoteLine], hiddenDone: Int) {
+        var shown: [NoteLine] = []
+        var hiddenDone = 0
+        for line in lines {
+            if line.isChecked && !kept.contains(line.id) {
+                hiddenDone += 1
+                continue
+            }
+            if line.kind == .blank, shown.last?.kind == .blank { continue }
+            shown.append(line)
+        }
+        while shown.last?.kind == .blank { shown.removeLast() }
+        while shown.first?.kind == .blank { shown.removeFirst() }
+        return (shown, hiddenDone)
+    }
+
+    /// What fits in `maxLines` rows. A "N done" line is added only when an open task
+    /// doesn't have to give up its row for it.
+    static func layout(_ lines: [NoteLine], maxLines: Int, keeping kept: Int? = nil) -> (shown: [NoteLine], summary: String) {
+        let settled = hidingFinished(lines, keeping: keptIDs(kept))
+        var shown = settled.shown
+        if shown.count > maxLines {
+            shown.removeAll { $0.kind == .blank || $0.kind == .divider }
+        }
+        if shown.count <= maxLines {
+            let summary = (settled.hiddenDone > 0 && shown.count < maxLines) ? "\(settled.hiddenDone) done" : ""
+            return (shown, summary)
+        }
+        return fit(lines, into: max(maxLines - 1, 0), keeping: kept)
+    }
+
+    private static func keptIDs(_ kept: Int?) -> Set<Int> {
+        guard let kept else { return [] }
+        return [kept]
+    }
+
+    /// Packs lines into `slots`, after finished items have already left.
     /// `keeping` is a just-ticked line that stays put so the tick can be seen.
     static func fit(_ lines: [NoteLine], into slots: Int, keeping kept: Int? = nil) -> (shown: [NoteLine], summary: String) {
-        var shown = lines
-        var hiddenDone = 0
-        while shown.count > slots, let index = shown.lastIndex(where: { $0.isChecked && $0.id != kept }) {
-            shown.remove(at: index)
-            hiddenDone += 1
-        }
+        let settled = hidingFinished(lines, keeping: keptIDs(kept))
+        var shown = settled.shown
         while shown.count > slots, let index = shown.lastIndex(where: { $0.kind == .blank || $0.kind == .divider }) {
             shown.remove(at: index)
         }
-        let hiddenOther = max(0, shown.count - slots)
-        shown = Array(shown.prefix(slots))
+        let room = max(slots, 0)
+        let hiddenOther = max(0, shown.count - room)
+        shown = Array(shown.prefix(room))
         var parts: [String] = []
         if hiddenOther > 0 { parts.append("+\(hiddenOther) more") }
-        if hiddenDone > 0 { parts.append("\(hiddenDone) done") }
+        if settled.hiddenDone > 0 { parts.append("\(settled.hiddenDone) done") }
         return (shown, parts.joined(separator: " · "))
     }
 
@@ -417,6 +457,8 @@ struct WidgetNoteContent: View {
     let maxLines: Int
     var interactive: Bool = true
     var allowsColumns: Bool = true
+    /// A line that was just ticked and should stay visible, crossed out, for a moment.
+    var justTicked: Int? = nil
 
     var body: some View {
         let lines = NoteParser.visibleLines(text)
@@ -436,7 +478,8 @@ struct WidgetNoteContent: View {
                 accent: theme.mainColor,
                 spacing: 3,
                 interaction: interactive ? .intents : .none,
-                allowsColumns: allowsColumns
+                allowsColumns: allowsColumns,
+                justTicked: justTicked
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }

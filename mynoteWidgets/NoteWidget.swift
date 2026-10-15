@@ -9,6 +9,8 @@ struct NoteEntry: TimelineEntry {
     let settings: SettingsSnapshot
     /// Whether the list is actually on the Lock Screen at `date`.
     var isLive: Bool = false
+    /// A line that was just ticked. It stays crossed out until this entry's moment passes.
+    var justTicked: Int? = nil
 }
 
 struct NoteProvider: TimelineProvider {
@@ -25,10 +27,17 @@ struct NoteProvider: TimelineProvider {
         let settings = SettingsSnapshot.load()
         let text = NoteFile.load().current.text
         let live = settings.isEffectivelyLive && ActivityAuthorizationInfo().areActivitiesEnabled
-        var entries = [NoteEntry(date: .now, text: text, settings: settings, isLive: live)]
+        let now = Date()
+        var entries = [NoteEntry(date: now, text: text, settings: settings, isLive: live, justTicked: RecentTick.line(at: now))]
         if live, let end = settings.coveredUntil {
-            // Flip to the Go Live button the moment the relay runs out.
+            // Drop the freshly ticked line once its strike has been seen, then flip to
+            // Go Live when the relay runs out. Both have to stay in time order.
+            if let until = RecentTick.expiresAt(), until > now, until < end {
+                entries.append(NoteEntry(date: until, text: text, settings: settings, isLive: true))
+            }
             entries.append(NoteEntry(date: end, text: text, settings: settings, isLive: false))
+        } else if let until = RecentTick.expiresAt(), until > now {
+            entries.append(NoteEntry(date: until, text: text, settings: settings, isLive: live))
         }
         completion(Timeline(entries: entries, policy: .never))
     }
@@ -92,7 +101,8 @@ struct NoteWidgetView: View {
                 font: entry.settings.font,
                 size: size,
                 maxLines: maxLines,
-                allowsColumns: family != .systemSmall
+                allowsColumns: family != .systemSmall,
+                justTicked: entry.justTicked
             )
         }
         .containerBackground(for: .widget) {
@@ -122,11 +132,15 @@ struct NoteWidgetView: View {
     // MARK: Lock screen accessories
 
     private var rectangular: some View {
-        let lines = Array(NoteParser.visibleLines(entry.text).filter { $0.kind != .blank && $0.kind != .divider }.prefix(3))
+        let visible = NoteParser.visibleLines(entry.text).filter { $0.kind != .blank && $0.kind != .divider }
+        let settled = FittedNoteLines.hidingFinished(visible, keeping: Set(entry.justTicked.map { [$0] } ?? []))
+        let lines = Array(settled.shown.prefix(3))
         return VStack(alignment: .leading, spacing: 1) {
-            if lines.isEmpty {
+            if lines.isEmpty && settled.hiddenDone == 0 {
                 Text("mynote").font(.headline)
                 Text("Tap to write your list").font(.caption).foregroundStyle(.secondary)
+            } else if lines.isEmpty {
+                Text("\(settled.hiddenDone) done").font(.headline)
             } else {
                 ForEach(lines) { line in
                     HStack(spacing: 4) {
@@ -149,6 +163,11 @@ struct NoteWidgetView: View {
                             .foregroundStyle(line.isChecked ? .secondary : .primary)
                             .lineLimit(1)
                     }
+                }
+                if lines.count < 3, settled.hiddenDone > 0 {
+                    Text("\(settled.hiddenDone) done")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

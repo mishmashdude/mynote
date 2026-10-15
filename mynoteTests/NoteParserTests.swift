@@ -90,6 +90,42 @@ struct NoteParserTests {
         #expect(fitted.summary == "1 done")
     }
 
+    @Test func finishedItemsLeaveEvenWhenThereIsRoom() {
+        let lines = NoteParser.parse("[x] a\n[ ] b\n[ ] c")
+        let fitted = FittedNoteLines.fit(lines, into: 6)
+        #expect(fitted.shown.map(\.content) == ["b", "c"])
+        #expect(fitted.summary == "1 done")
+
+        let kept = FittedNoteLines.fit(lines, into: 6, keeping: 0)
+        #expect(kept.shown.map(\.content) == ["a", "b", "c"])
+        #expect(kept.summary == "")
+    }
+
+    @Test func layoutSpendsSpareRoomOnTheDoneCount() {
+        let lines = NoteParser.parse("[x] a\n[ ] b\n[x] c\n[ ] d\n[ ] e")
+        let tight = FittedNoteLines.layout(lines, maxLines: 3)
+        #expect(tight.shown.map(\.content) == ["b", "d", "e"])
+        #expect(tight.summary == "")
+
+        let room = FittedNoteLines.layout(lines, maxLines: 4)
+        #expect(room.shown.map(\.content) == ["b", "d", "e"])
+        #expect(room.summary == "2 done")
+    }
+
+    @Test func layoutKeepsAJustTickedLineAndStillHidesOlderOnes() {
+        let lines = NoteParser.parse("[x] a\n[ ] b\n[x] c")
+        let laid = FittedNoteLines.layout(lines, maxLines: 6, keeping: 2)
+        #expect(laid.shown.map(\.content) == ["b", "c"])
+        #expect(laid.summary == "1 done")
+    }
+
+    @Test func layoutFoldsALongOpenList() {
+        let lines = NoteParser.parse("[x] a\n[ ] b\n[ ] c\n[ ] d\n[ ] e")
+        let laid = FittedNoteLines.layout(lines, maxLines: 3)
+        #expect(laid.shown.map(\.content) == ["b", "c"])
+        #expect(laid.summary == "+2 more · 1 done")
+    }
+
     @Test func shareTextIsReadable() {
         #expect(NoteParser.shareText("# Hi\n[x] a\n[ ] b\n- c") == "HI\n☑︎ a\n☐ b\n• c")
         #expect(NoteParser.shareText("1. **one**\n1. two\n  - deep") == "1. one\n2. two\n  • deep")
