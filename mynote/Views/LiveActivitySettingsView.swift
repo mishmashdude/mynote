@@ -186,7 +186,7 @@ struct LockScreenPreview: View {
                 LiveNoteView(state: state, interactive: false)
                     .background {
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(palette.background ?? .clear)
+                            .fill(palette.card ?? palette.platterTint ?? .clear)
                             .background {
                                 if state.style == .glass {
                                     RoundedRectangle(cornerRadius: 22, style: .continuous).fill(.ultraThinMaterial)

@@ -360,8 +360,9 @@ final class LiveActivityManager {
     static let tickLinger: Duration = .milliseconds(1_400)
 
     /// Bump when the Lock Screen should be rebuilt once so a card started under an old theme is replaced.
+    /// 2: the theme colour moved from the iOS background tint into the view.
     private static let themeEpochKey = "liveThemeEpoch"
-    private static let themeEpoch = 1
+    private static let themeEpoch = 2
 
     // MARK: - Internals
 

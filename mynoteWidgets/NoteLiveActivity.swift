@@ -136,8 +136,9 @@ struct LockScreenLiveView: View {
                 LiveNoteView(state: context.state, isStale: context.isStale)
             }
         }
-        .activityBackgroundTint(palette.background)
-        .activitySystemActionForegroundColor(palette.text)
+        .background(palette.card ?? .clear)
+        .activityBackgroundTint(palette.platterTint)
+        .activitySystemActionForegroundColor(palette.systemActionColor)
         .widgetURL(URL(string: "mynote://open"))
     }
 

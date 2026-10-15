@@ -395,6 +395,19 @@ struct LiveActivityAppearanceTests {
         #expect(purple.hasSameAppearance(as: edited))
         #expect(!purple.hasSameAppearance(as: reset))
     }
+
+    /// iOS can show the text from its dark pass over the tint from its light pass, so the
+    /// colours handed to iOS must be the same whichever theme is being drawn.
+    @Test func coloursHandedToIOSDontChangeWithTheTheme() {
+        for style in LiveStyle.allCases {
+            let first = LivePalette(style: style, theme: ThemeCatalog.all[0])
+            for theme in ThemeCatalog.all {
+                let palette = LivePalette(style: style, theme: theme)
+                #expect(palette.platterTint == first.platterTint, "\(style) \(theme.id)")
+                #expect(palette.systemActionColor == first.systemActionColor, "\(style) \(theme.id)")
+            }
+        }
+    }
 }
 
 struct ContrastTests {

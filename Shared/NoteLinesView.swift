@@ -284,8 +284,18 @@ struct FittedNoteLines: View {
 // MARK: - Live Activity (Lock Screen) content
 
 /// Colours for the Lock Screen presentation, depending on the chosen style.
+///
+/// iOS draws the Lock Screen view once for light and once for dark, but it can show the text
+/// from one pass on top of the background tint from the other. So anything that changes
+/// between light and dark is painted inside the view (`card`), where it always matches the
+/// text, and only colours that never change go to iOS (`platterTint`, `systemActionColor`).
 struct LivePalette {
-    let background: Color?
+    /// Painted behind the list inside the Live Activity's own view.
+    let card: Color?
+    /// Handed to iOS for the card it draws behind the view (nil = the system's own background).
+    let platterTint: Color?
+    /// Text on the buttons iOS adds to the card, such as "Allow Live Activities?" (nil = system default).
+    let systemActionColor: Color?
     let text: Color
     let sub: Color
     let accent: Color
@@ -293,17 +303,23 @@ struct LivePalette {
     init(style: LiveStyle, theme: Theme) {
         switch style {
         case .theme:
-            background = theme.bgColor
+            card = theme.bgColor
+            platterTint = nil
+            systemActionColor = nil
             text = theme.textColor
             sub = theme.subColor
             accent = theme.mainColor
         case .glass:
-            background = Color.black.opacity(0.42)
+            card = nil
+            platterTint = Color.black.opacity(0.42)
+            systemActionColor = .white
             text = .white
             sub = .white.opacity(0.55)
             accent = theme.islandAccent
         case .clear:
-            background = .clear
+            card = nil
+            platterTint = .clear
+            systemActionColor = .white
             text = .white
             sub = .white.opacity(0.6)
             accent = theme.islandAccent
