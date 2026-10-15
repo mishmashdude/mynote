@@ -39,7 +39,7 @@ def rounded_mask(size, radius):
 
 
 framed = []
-for folder in (OUT, OUT + "-6.9-jpg", OUT + "-6.5", OUT + "-6.5-jpg"):
+for folder in (OUT, OUT + "-6.9-jpg", OUT + "-6.5", OUT + "-6.5-jpg", OUT + "-6.3-jpg"):
     os.makedirs(folder, exist_ok=True)
     for old in os.listdir(folder):
         if old.lower().endswith((".png", ".jpg")):
@@ -82,12 +82,14 @@ def compose(raw, out, lines, bg, fg, accent, highlight_line=1, sub=None):
     canvas.paste(frame, (x, top), rounded_mask((bw, bh), 150))
     canvas.paste(shot, (x + bezel, top + bezel), rounded_mask((dw, dh), 128))
     canvas.save(os.path.join(OUT, out), quality=95)
-    # App Store Connect uploads: JPEGs, one at a time. The 6.5" slot is the one it asks for.
+    # App Store Connect uploads: JPEGs, one at a time. Since 2026 the required slot is
+    # "iPhone with Dynamic Island (medium display)", 1206x2622 (-6.3-jpg); it covers every iPhone size.
     name = os.path.splitext(out)[0]
     canvas.save(os.path.join(OUT + "-6.9-jpg", name + ".jpg"), quality=92, optimize=True)
     small = canvas.resize((1284, 2778), Image.LANCZOS)
     small.save(os.path.join(OUT + "-6.5", out))
     small.save(os.path.join(OUT + "-6.5-jpg", name + ".jpg"), quality=92, optimize=True)
+    canvas.resize((1206, 2622), Image.LANCZOS).save(os.path.join(OUT + "-6.3-jpg", name + ".jpg"), quality=92, optimize=True)
     framed.append(canvas)
     print("wrote", out)
 
